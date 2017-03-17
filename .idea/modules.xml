@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../2017_EMNLP_CCG_parsing/NeuroCCG/.idea/NeuroCCG.iml" filepath="$PROJECT_DIR$/../../2017_EMNLP_CCG_parsing/NeuroCCG/.idea/NeuroCCG.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/code.iml" filepath="$PROJECT_DIR$/.idea/code.iml" />
+    </modules>
+  </component>
+</project>

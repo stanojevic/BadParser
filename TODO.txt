@@ -1,0 +1,26 @@
+done:
+4) during validation we should print F1 on both full  sentences and on sentences with length < 40
+3) during validation we should measure
+    a) how many sentences we parse per second
+    b) how many words per second
+    c) figure out how to show the length of sentence vs speed of parsing correlation
+5) check which sentences give infinite loss
+11) report #of transitions in training & prediction time
+
+on notice:
+
+the rest:
+6) lazy swaps
+7) lazier swaps
+
+14) try SGD instead of ADAM
+
+1) bidirectional lstm at the leafs
+8) char embeddings
+9) pretrained embeddings
+
+10) recurrence in the configuration representation
+12) be able to turn off buffer, action or stack
+13) be able to turn off composition function
+
+15) Tree-LSTM and Phong-LSTM
