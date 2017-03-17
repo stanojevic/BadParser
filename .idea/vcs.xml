@@ -3,6 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="svn" />
     <mapping directory="$PROJECT_DIR$/../../2017_EMNLP_CCG_parsing/NeuroCCG" vcs="svn" />
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/BadParser" vcs="Git" />
   </component>
 </project>

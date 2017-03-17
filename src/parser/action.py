@@ -4,6 +4,8 @@ class Action:
         self.name = name
         self.vector = vector
 
+    def __repr__(self):
+        return self.name
 
 class ActionStorage:
 

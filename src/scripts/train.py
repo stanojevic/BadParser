@@ -107,14 +107,23 @@ def laziest_satisfied(laziness, conf):
     if conf.stack.size <= 1:
         return True
 
-    real_stack_top = conf.stack.top().attributes['real_me']
-    real_stack_second_top = conf.stack.second_top().attributes['real_me']
+    top = conf.stack.top()
+    second_top = conf.stack.second_top()
+    real_top = top.attributes['real_me']
+    real_second_top = second_top.attributes['real_me']
 
-    if real_stack_top.attributes['cpa'] == real_stack_second_top.attributes['cpa']:
+    if not is_complete(top):
+        real_top = real_top.children[real_top.attributes['head_child']]
+    if not is_complete(second_top):
+        real_second_top = real_second_top.children[real_second_top.attributes['head_child']]
+
+    if real_top.attributes['cpa'] == real_second_top.attributes['cpa']:
         return True
     else:
         return False
 
+def is_complete(node):
+    return len(node.children) == len(node.attributes['real_me'].children)
 
 def construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness):
     annotate_node_G_ordering(tree)
@@ -145,12 +154,12 @@ def construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness):
             second_top = c.stack.second_top()
             top = c.stack.top()
             # ADJ_LEFT
-            if len(second_top.children) == len(second_top.attributes['real_me'].children) and \
-                second_top.attributes['real_me'].attributes['my_mother'].is_equal_to(top.attributes['real_me']):
+            if is_complete(second_top) and \
+               second_top.attributes['real_me'].attributes['my_mother'].is_equal_to(top.attributes['real_me']):
                 c = c.transition(action_storage.ADJ_LEFT)
                 continue
-            elif len(top.children) == len(top.attributes['real_me'].children) and \
-                top.attributes['real_me'].attributes['my_mother'].is_equal_to(second_top.attributes['real_me']):
+            elif is_complete(top) and \
+               top.attributes['real_me'].attributes['my_mother'].is_equal_to(second_top.attributes['real_me']):
                 c = c.transition(action_storage.ADJ_RIGHT)
                 continue
 
@@ -162,8 +171,8 @@ def construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness):
             real_mother = real_me.attributes['my_mother']
             mothers_head = real_mother.children[real_mother.attributes['head_child']] if type(real_mother) != str else None
             if mothers_head is not None and \
-                len(top.children) == len(real_me.children) and \
-                mothers_head.is_equal_to(real_me):
+               is_complete(top) and \
+               mothers_head.is_equal_to(real_me):
                 c = c.transition(action_storage.get_pro_index_for_string_label(real_mother.label))
                 c.stack.top().attributes['real_me'] = real_mother
                 continue
