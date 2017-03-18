@@ -14,6 +14,8 @@ on notice:
 the rest:
 16) mkdir(parse_time) save files in that directory
 17) maybe for swaps too?
+18) check how many times you reached the limit of 3 PROs
+19) change handcoding of "root" with PRO-root action
 
 14) try SGD instead of ADAM
 
