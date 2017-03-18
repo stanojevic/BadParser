@@ -6,12 +6,14 @@ done:
     c) figure out how to show the length of sentence vs speed of parsing correlation
 5) check which sentences give infinite loss
 11) report #of transitions in training & prediction time
+6) lazy swaps
+7) lazier swaps
 
 on notice:
 
 the rest:
-6) lazy swaps
-7) lazier swaps
+16) mkdir(parse_time) save files in that directory
+17) maybe for swaps too?
 
 14) try SGD instead of ADAM
 
