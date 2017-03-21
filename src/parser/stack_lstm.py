@@ -26,7 +26,7 @@ class StackLSTM:
 
     def top(self):
         if self.size == 0:
-            raise Exception("popping from empty stack")
+            raise Exception("topping from empty stack")
         else:
             return self._head
 

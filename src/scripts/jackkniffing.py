@@ -14,7 +14,7 @@ MODULES_FOLDER = join(MAIN_FOLDER, "src")
 if MODULES_FOLDER not in sys.path:
     sys.path.insert(0, MODULES_FOLDER)
 
-architecture = "bidirectional5words" # "left3words"
+architecture = "left3words"  # "bidirectional5words"
 separator = "_"
 
 # rm data_preprocessed/negra/*/*.tags.predicted

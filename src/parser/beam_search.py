@@ -53,8 +53,11 @@ class BeamDecoder:
 
         tree = best_finished_conf.stack.top()
 
+
         if tree.label != "root":
-            tree = TreeNode("root", [tree], {})
+            pro_index = self.action_storage.get_pro_index_for_string_label("root")
+            best_finished_conf = best_finished_conf.transition(pro_index)
+            tree = best_finished_conf.stack.top()
 
         return best_finished_conf, tree
 

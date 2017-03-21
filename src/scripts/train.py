@@ -235,13 +235,45 @@ def get_word_mapping(trees):
     return w2i
 
 
-def count_transitions(conf):
+def save_count_transitions(list_of_count_transitions, file_name):
+    transition_names = set()
+    for ct in list_of_count_transitions:
+        transition_names |= set(ct.keys())
+    transition_names = sorted(list(transition_names))
+
+    with open(file_name, "w") as fh:
+        print(" ".join(transition_names), file=fh)
+        for ct in list_of_count_transitions:
+            fields = []
+            for t in transition_names:
+                fields.append(str(ct.get(t, 0)))
+            print(" ".join(fields), file=fh)
+
+def count_transitions(final_conf, sent_id):
 
     action_counts = {}
+    consecutive_pro_count = 0
+    conf = final_conf
+    action_counts['conseq_pro_3'] = 0
+    action_counts['conseq_pro_4'] = 0
+    action_counts['conseq_pro_>4'] = 0
     while conf.prev_conf is not None:
         action = conf.last_action
+        if action.startswith("pro"):
+            consecutive_pro_count += 1
+        else:
+            consecutive_pro_count = 0
+        if consecutive_pro_count == 3:
+            action_counts['conseq_pro_3'] = action_counts.get('conseq_pro_3', 0) + 1
+        if consecutive_pro_count == 4:
+            action_counts['conseq_pro_4'] = action_counts.get('conseq_pro_4', 0) + 1
+        if consecutive_pro_count > 4:
+            action_counts['conseq_pro_>4'] = action_counts.get('conseq_pro_>4', 0) + 1
         action_counts[action] = action_counts.get(action, 0) + 1
         conf = conf.prev_conf
+
+    action_counts['num_words'] = len(final_conf.stack.top().give_me_terminal_nodes())
+    action_counts['sent_id'] = sent_id
 
     return action_counts
 
@@ -266,14 +298,19 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
     laziness = hyper_params['laziness']
     model, params = define_model(hyper_params)
 
-    trainer = dy.AdagradTrainer(model)
+    if hyper_params['optimizer'] == "AdaGrad":
+        trainer = dy.AdagradTrainer(model)
+    elif hyper_params['optimizer'] == "Adam":
+        trainer = dy.AdamTrainer(model)
+    elif hyper_params['optimizer'] == "SGD":
+        trainer = dy.SimpleSGDTrainer(model)
 
     reporting_frequency = 1000
 
     train_data = list(zip(train_trees, train_pos_seqs))
     train_data_size = len(train_data)
     dev_data = list(zip(dev_trees, dev_pos_seqs))
-    for epoch in range(epochs):
+    for epoch in range(1, epochs+1):
         time_epoch_start = time()
         shuffle(train_data)
         closs = 0
@@ -282,7 +319,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         for i, (tree, pos_seq) in enumerate(train_data, 1):
             dy.renew_cg()
             oracle_conf = construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness)
-            train_action_counts.append(count_transitions(oracle_conf))
+            train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
             loss_value = loss.value()
             if isinf(loss_value):
@@ -306,6 +343,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
 
             loss.backward()
             trainer.update()
+        trainer.update_epoch()
 
         validation_score, validation_score30, validation_score40 =\
             validate(epoch, model_dir, params, w2i, p2i, n2i, hyper_params['beam_size'], dev_data)
@@ -315,11 +353,13 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         epoch_loss /= train_data_size
         print("epoch %d acc: %f acc30: %f acc40: %f loss: %f"%(epoch, validation_score, validation_score30, validation_score40, epoch_loss), file=stderr)
 
+
+        if epoch == 1:
+            save_count_transitions(train_action_counts, join(model_dir, "transition_counts_training_set_log.csv"))
         nswaps = np.array([d.get('swap', 0) for d in train_action_counts])
         mean_swaps = nswaps.mean()
         std_swaps = nswaps.std()
         print("epoch %d TRAIN mean swaps: %f std swap: %f"%(epoch, mean_swaps, std_swaps), file=stderr)
-
 
 
 def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
@@ -334,7 +374,11 @@ def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
     dev_data_size = len(dev_data)
     time_start = time()
     word_count_total = 0
-    fh = open(join(model_dir, "parse_time_%d"%epoch), "w")
+    if not exists(join(model_dir, "parse_time_log")):
+        mkdir(join(model_dir, "parse_time_log"))
+    if not exists(join(model_dir, "transition_counts_validation_set_log")):
+        mkdir(join(model_dir, "transition_counts_validation_set_log"))
+    fh = open(join(model_dir, "parse_time_log", "parse_time_%d"%epoch), "w")
     print("length seconds", file=fh)
     dev_action_counts=[]
     for i, (tree, pos_seq) in enumerate(dev_data, 1):
@@ -345,7 +389,7 @@ def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
         acc += escore
         ntrees += 1
         #Count actions
-        dev_action_counts.append(count_transitions(predicted_conf))
+        dev_action_counts.append(count_transitions(predicted_conf, i))
 
 
         # Cutoffs
@@ -374,6 +418,7 @@ def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
     words_per_second = word_count_total/period
     print(file=stderr)
     print("epoch %d sents/sec: %f words/sec: %f"%(epoch, sents_per_second, words_per_second), file=stderr)
+    save_count_transitions(dev_action_counts, join(model_dir, "transition_counts_validation_set_log", "epoch_%d"%epoch))
 
     #Mean action counts
     nswaps = np.array([d.get('swap', 0) for d in dev_action_counts])

@@ -18,5 +18,5 @@
   "beam_size": 1,
 
   "laziness": "laziest",
-  "optimizer": "AdaGrad"
+  "optimizer": "Adam"
 }
