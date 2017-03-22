@@ -204,10 +204,12 @@ class Configuration:
         all_embeddings.append(w_emb)
         p_emb = params['E_p'][all_s2i.p2i[pos]]
         all_embeddings.append(p_emb)
-        if all_s2i.c2i is not None:
+        #if all_s2i.c2i is not None:
+        if 'E_c' in params:
             c_emb_for_word = Configuration._compute_char_emb_for_word(word, params, all_s2i)
             all_embeddings.append(c_emb_for_word)
-        if all_s2i.ext_w2i is not None:
+        #if all_s2i.ext_w2i is not None:
+        if 'E_pretrained' in params:
             ext_embedding = dy.lookup(params['E_pretrained'], all_s2i.ext_w2i[word], update=False)
             all_embeddings.append(ext_embedding)
         V = dy.parameter(params['V'])
