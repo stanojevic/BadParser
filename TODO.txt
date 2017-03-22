@@ -1,33 +1,14 @@
-done:
 
 on notice:
 
-from dynet tutorial  http://dynet.readthedocs.io/en/latest/tutorials_notebooks/API.html:
-            # lookup parameters can be initialized from an existing array, i.e:
-            # m["lookup"].init_from_array(wv)
-
-            e5  = lookup(lp, 5)   # create an Expression from row 5.
-            e5c = lookup(lp, 5, update=False)  # as before, but don't update when optimizing.
-            e5.set(9)   # now the e5 expression contains row 9
-            e5c.set(9)  # ditto
-
-
 the rest:
-
-18) exclude sentences with infinite loss and count how many are there
 
 10) recurrence in the configuration representation
 12) be able to turn off buffer, action or stack
+
 13) be able to turn off composition function
-
-1) bidirectional lstm at the leafs
-8) char embeddings (both bilstm and convolutional ones)
-9) pretrained embeddings
-
 15) Tree-LSTM and LeSTM
 
-16) dropout on embeddings
 17) word dropout
 
-14) try SGD halving of the learning rate
-
+18) automatic training, parsing and evaluation on all datasets

@@ -1,5 +1,7 @@
 class String2IntegerMapper:
 
+    UNK = "<UNK>"
+
     def __init__(self):
         self.s2i = dict()
         self.i2s = dict()
@@ -34,7 +36,7 @@ class String2IntegerMapper:
             return self.i2s[key]
         else:
             if key not in self.s2i:
-                return self.s2i["UNK"]
+                return self.s2i[String2IntegerMapper.UNK]
             else:
                 return self.s2i[key]
 
@@ -53,4 +55,14 @@ class String2IntegerMapper:
                 s = " ".join(fields[1:])
                 mapper._add_string_with_index(s, i)
         return mapper
+
+
+class ContainerStr2IntMaps:
+
+    def __init__(self, w2i=None, p2i=None, n2i=None, c2i=None, ext_w2i=None):
+        self.w2i = w2i
+        self.p2i = p2i
+        self.n2i = n2i
+        self.c2i = c2i
+        self.ext_w2i = ext_w2i
 

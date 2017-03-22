@@ -22,11 +22,11 @@ from parser.beam_search import BeamDecoder
 
 
 def main(model_dir, test_sentences_file, test_pos_file, out_file, beam_size):
-    model, params, hyper_params, w2i, p2i, n2i = load_model(model_dir)
+    model, params, hyper_params, all_s2i = load_model(model_dir)
     if beam_size:
         hyper_params['beam_size'] = beam_size
 
-    beam = BeamDecoder(params, w2i, p2i, n2i, hyper_params['beam_size'])
+    beam = BeamDecoder(params, all_s2i, hyper_params['beam_size'])
 
     pos_tags = load_pos_tags(test_pos_file)
     sentences = load_sentences(test_sentences_file)
@@ -44,6 +44,7 @@ def main(model_dir, test_sentences_file, test_pos_file, out_file, beam_size):
             print(predicted_tree.to_export(processed), file=fh)
             if processed % 5 == 0:
                 print("processed %d"%processed, file=stderr)
+                stderr.flush()
     time_ended = time()
     sents_per_sec = len(sentences)/(time_ended-time_started)
     words_per_sec = word_count/(time_ended-time_started)

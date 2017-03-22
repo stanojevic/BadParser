@@ -20,7 +20,7 @@ if MODULES_FOLDER not in sys.path:
     sys.path.insert(0, MODULES_FOLDER)
 
 from data_formats.tree_loader import load_from_export_format
-from parser.string2int_mapper import String2IntegerMapper
+from parser.string2int_mapper import String2IntegerMapper, ContainerStr2IntMaps
 from parser.configuration import Configuration
 from parser.action import ActionStorage
 from parser.beam_search import BeamDecoder
@@ -125,7 +125,7 @@ def laziest_satisfied(laziness, conf):
 def is_complete(node):
     return len(node.children) == len(node.attributes['real_me'].children)
 
-def construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness):
+def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness):
     annotate_node_G_ordering(tree)
     find_me_a_mother(tree)
     if laziness == "lazy":
@@ -135,8 +135,8 @@ def construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness):
         annotate_closest_projective_ancestor(tree, tree.attributes['<G'])
 
     words = [node.label for node in tree.give_me_terminal_nodes()]
-    action_storage = ActionStorage(n2i, params['E_a'])
-    init_conf = Configuration.construct_init_configuration(words, pos_seq, params, action_storage, w2i, p2i)
+    action_storage = ActionStorage(all_s2i.n2i, params['E_a'])
+    init_conf = Configuration.construct_init_configuration(words, pos_seq, params, action_storage, all_s2i)
 
     leafs = tree.give_me_terminal_nodes()
     buffer_pointer = init_conf.buffer
@@ -212,7 +212,7 @@ def get_nonterm_mapping(trees):
 
 def get_pos_mapping(pos_seqs):
     p2i = String2IntegerMapper()
-    p2i.add_string("UNK")
+    p2i.add_string(String2IntegerMapper.UNK)
     p_count = dict()
     for pos_seq in pos_seqs:
         for pos in pos_seq:
@@ -221,16 +221,32 @@ def get_pos_mapping(pos_seqs):
         p2i.add_string(p)
     return p2i
 
+def get_char_mapping(trees):
+    MIN_COUNT_KNOWN = 10
+    c2i = String2IntegerMapper()
+    c2i.add_string(String2IntegerMapper.UNK)
+    c_count = dict()
+    for tree in trees:
+        for node in tree.give_me_terminal_nodes():
+            w = node.label
+            for c in w:
+                c_count[c] = c_count.get(c, 0) + 1
+    for c, _ in sorted(list(filter(lambda x: x[1] >= MIN_COUNT_KNOWN, c_count.items())), key=lambda x: x[0]):
+        c2i.add_string(c)
+    return c2i
+
+
 def get_word_mapping(trees):
+    MIN_COUNT_KNOWN = 3
     w2i = String2IntegerMapper()
-    w2i.add_string("UNK")
+    w2i.add_string(String2IntegerMapper.UNK)
     w_count = dict()
     for tree in trees:
         for node in tree.give_me_terminal_nodes():
             w = node.label
             # p = node.attributes["tag"]
             w_count[w] = w_count.get(w, 0)+1
-    for w, _ in sorted(list(filter(lambda x: x[1] >= 3, w_count.items())), key=lambda x: x[0]):
+    for w, _ in sorted(list(filter(lambda x: x[1] >= MIN_COUNT_KNOWN, w_count.items())), key=lambda x: x[0]):
         w2i.add_string(w)
     return w2i
 
@@ -278,7 +294,9 @@ def count_transitions(final_conf, sent_id):
     return action_counts
 
 
-def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encoding, model_dir, epochs, hyper_params_desc_file):
+def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encoding, model_dir, epochs, hyper_params_desc_file, external_embeddings_file):
+    hyper_params = load_hyper_parameters_from_file(hyper_params_desc_file)
+
     best_validation_score = 0
 
     # load the data in the memory
@@ -286,17 +304,23 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
     train_pos_seqs = load_pos_tags(train_pos_file)
     dev_trees = load_from_export_format(dev_trees_file, encoding)
     dev_pos_seqs = load_pos_tags(dev_pos_file)
-    w2i = get_word_mapping(train_trees)
-    p2i = get_pos_mapping(train_pos_seqs)
-    n2i = get_nonterm_mapping(train_trees)
+    all_s2i = ContainerStr2IntMaps()
+    all_s2i.w2i = get_word_mapping(train_trees)
+    if 'c_emb_size_for_char' in hyper_params:
+        all_s2i.c2i = get_char_mapping(train_trees)
+    else:
+        all_s2i.c2i = None
+    all_s2i.p2i = get_pos_mapping(train_pos_seqs)
+    all_s2i.n2i = get_nonterm_mapping(train_trees)
 
-    hyper_params = load_hyper_parameters_from_file(hyper_params_desc_file)
-    hyper_params['w_voc_size'] = w2i.size()
-    hyper_params['p_voc_size'] = p2i.size()
-    hyper_params['n_voc_size'] = n2i.size()
-    hyper_params['a_voc_size'] = n2i.size()+4 # is this correct?
+    hyper_params['w_voc_size'] = all_s2i.w2i.size()
+    hyper_params['p_voc_size'] = all_s2i.p2i.size()
+    hyper_params['n_voc_size'] = all_s2i.n2i.size()
+    hyper_params['a_voc_size'] = all_s2i.n2i.size()+4  # is this correct?
+    if all_s2i.c2i is not None:
+        hyper_params['c_voc_size'] = all_s2i.c2i.size()
     laziness = hyper_params['laziness']
-    model, params = define_model(hyper_params)
+    model, params = define_model(hyper_params, all_s2i, external_embeddings_file)
 
     if hyper_params['optimizer'] == "AdaGrad":
         trainer = dy.AdagradTrainer(model)
@@ -304,6 +328,9 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         trainer = dy.AdamTrainer(model)
     elif hyper_params['optimizer'] == "SGD":
         trainer = dy.SimpleSGDTrainer(model)
+
+    if hyper_params['update_type'] == "dense":
+        trainer.set_sparse_updates(False)
 
     reporting_frequency = 1000
 
@@ -318,12 +345,14 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         train_action_counts=[]
         for i, (tree, pos_seq) in enumerate(train_data, 1):
             dy.renew_cg()
-            oracle_conf = construct_oracle_conf(tree, pos_seq, params, w2i, p2i, n2i, laziness)
+            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness)
             train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
             loss_value = loss.value()
             if isinf(loss_value):
+                print(file=stderr)
                 print("INF LOSS ON: %s"%(tree.__repr__()), file=stderr)
+                continue
             epoch_loss += loss_value
             closs += loss.value()
             if i % reporting_frequency == 0:
@@ -346,10 +375,10 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         trainer.update_epoch()
 
         validation_score, validation_score30, validation_score40 =\
-            validate(epoch, model_dir, params, w2i, p2i, n2i, hyper_params['beam_size'], dev_data)
+            validate(epoch, model_dir, params, all_s2i, hyper_params['beam_size'], dev_data)
         if validation_score > best_validation_score:
             best_validation_score = validation_score
-            save_model(model, params, hyper_params, model_dir, w2i, p2i, n2i)
+            save_model(model, params, hyper_params, model_dir, all_s2i)
         epoch_loss /= train_data_size
         print("epoch %d acc: %f acc30: %f acc40: %f loss: %f"%(epoch, validation_score, validation_score30, validation_score40, epoch_loss), file=stderr)
 
@@ -362,8 +391,13 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         print("epoch %d TRAIN mean swaps: %f std swap: %f"%(epoch, mean_swaps, std_swaps), file=stderr)
 
 
-def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
-    beam = BeamDecoder(params, w2i, p2i, n2i, beam_size)
+def validate(epoch, model_dir, params, all_s2i, beam_size, dev_data):
+
+    params['Stack_LSTM'].disable_dropout()
+    params['Buffer_LSTM'].disable_dropout()
+    params['Action_LSTM'].disable_dropout()
+
+    beam = BeamDecoder(params, all_s2i, beam_size)
     acc = 0
     acc30 = 0
     acc40 = 0
@@ -426,6 +460,10 @@ def validate(epoch, model_dir, params, w2i, p2i, n2i, beam_size, dev_data):
     std_swaps = nswaps.std()
     print("epoch %d DEV mean swaps: %f std swap: %f"%(epoch, mean_swaps, std_swaps), file=stderr)
 
+    params['Stack_LSTM'].enable_dropout()
+    params['Buffer_LSTM'].enable_dropout()
+    params['Action_LSTM'].enable_dropout()
+
     return acc/ntrees, acc30/ntrees30, acc40/ntrees40
 
 def eval_score(predicted_tree, gold_tree):
@@ -465,6 +503,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_pos_file", required=True, type=str, help="stanford tagger format(sep /) training file")
     parser.add_argument("--dev_trees_file", required=True, type=str, help="export format development file")
     parser.add_argument("--dev_pos_file", required=True, type=str, help="stanford tagger format(sep /) development file")
+    parser.add_argument("--external_embeddings_file", default=None, type=str, help="csv file with embeddings")
     parser.add_argument("--dynet-mem", default=512, type=int, help="memory for the neural network")
     parser.add_argument("--encoding", type=str, default="utf-8",
                         help="Export format encoding default=utf-8, alternative latin1")
@@ -486,5 +525,5 @@ if __name__ == "__main__":
     if not exists(args.model_dir):
         mkdir(args.model_dir)
 
-    main(args.train_trees_file, args.train_pos_file, args.dev_trees_file, args.dev_pos_file, args.encoding, args.model_dir, args.epochs, args.hyper_params_file)
+    main(args.train_trees_file, args.train_pos_file, args.dev_trees_file, args.dev_pos_file, args.encoding, args.model_dir, args.epochs, args.hyper_params_file, args.external_embeddings_file)
 

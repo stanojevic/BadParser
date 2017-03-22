@@ -9,20 +9,17 @@ from data_formats.tree_representation import TreeNode
 
 class BeamDecoder:
 
-    def __init__(self, params, w2i, p2i, n2i, beam_size):
-        self.action_storage = ActionStorage(n2i, params['E_a'])
+    def __init__(self, params, all_s2i, beam_size):
+        self.action_storage = ActionStorage(all_s2i.n2i, params['E_a'])
         self.params = params
-        self.w2i = w2i
-        self.p2i = p2i
-        self.n2i = n2i
+        self.all_s2i = all_s2i
         self.beam_size = beam_size
 
-
-    def decode(self, words, pos_seq): # <<<<<<>>>>>>
+    def decode(self, words, pos_seq):  # <<<<<<>>>>>>
         dy.renew_cg()
         init_conf = \
             Configuration.construct_init_configuration(
-                words, pos_seq, self.params, self.action_storage, self.w2i, self.p2i)
+                words, pos_seq, self.params, self.action_storage, self.all_s2i)
         current_beam = [init_conf]
 
         best_finished_conf = None

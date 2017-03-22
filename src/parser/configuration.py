@@ -166,8 +166,13 @@ class Configuration:
         return "("+self.stack.__repr__()+" ||| "+self.buffer.__repr__()+")"
 
     @staticmethod
-    def construct_init_configuration(words, pos_seq, params, action_storage, w2i, p2i):
-        leaf_nodes = Configuration._convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, w2i, p2i)
+    def construct_init_configuration(words, pos_seq, params, action_storage, all_s2i):
+        leaf_nodes = Configuration._convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i)
+        if 'BiLSTM' in params:
+            leaf_vectors = [leaf_node.vector for leaf_node in leaf_nodes]
+            new_leaf_vectors = params['BiLSTM'].transduce(leaf_vectors)
+            for leaf_node, new_leaf_vector in zip(leaf_nodes, new_leaf_vectors):
+                leaf_node.vector = new_leaf_vector
         init_buffer = Configuration._construct_init_buffer(leaf_nodes, params)
         init_stack = StackLSTM.construct_empty_stack(params['Stack_LSTM'])
         init_actions = StackLSTM.construct_empty_stack(params['Action_LSTM'])
@@ -184,20 +189,46 @@ class Configuration:
         return buffer
 
     @staticmethod
-    def _convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, w2i, p2i):
+    def _convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i):
         nodes = []
         for word, pos, word_position in zip(words, pos_seq, range(len(words))):
-            node = Configuration._convert_word_to_tree_node(word, pos, word_position, params, w2i, p2i)
+            node = Configuration._convert_word_to_tree_node(word, pos, word_position, params, all_s2i)
             nodes.append(node)
         return nodes
 
     @staticmethod
-    def _convert_word_to_tree_node(word, pos, word_position, params, w2i, p2i):
+    def _convert_word_to_tree_node(word, pos, word_position, params, all_s2i):
         node = TreeNode(word, [], {'tag': pos, 'word_position': word_position}, word_position=word_position)
-        w_emb = params['E_w'][w2i[word]]
-        p_emb = params['E_p'][p2i[pos]]
+        all_embeddings = []
+        w_emb = params['E_w'][all_s2i.w2i[word]]
+        all_embeddings.append(w_emb)
+        p_emb = params['E_p'][all_s2i.p2i[pos]]
+        all_embeddings.append(p_emb)
+        if all_s2i.c2i is not None:
+            c_emb_for_word = Configuration._compute_char_emb_for_word(word, params, all_s2i)
+            all_embeddings.append(c_emb_for_word)
+        if all_s2i.ext_w2i is not None:
+            ext_embedding = dy.lookup(params['E_pretrained'], all_s2i.ext_w2i[word], update=False)
+            all_embeddings.append(ext_embedding)
         V = dy.parameter(params['V'])
         v = dy.parameter(params['v'])
-        input_vec = dy.concatenate([w_emb, p_emb])
+        input_vec = dy.concatenate(all_embeddings)
         node.vector = dy.rectify(V*input_vec+v)
         return node
+
+    @staticmethod
+    def _compute_char_emb_for_word(word, params, all_s2i):
+        fw_lstm = params['Char_LSTM_Forward'].initial_state()
+        bw_lstm = params['Char_LSTM_Backward'].initial_state()
+        c2i = all_s2i.c2i
+
+        cs = [c2i[c] for c in word]
+
+        cembs = [params['E_c'][c] for c in cs]
+
+        fw_exps = fw_lstm.transduce(cembs)
+        bw_exps = bw_lstm.transduce(reversed(cembs))
+
+        return dy.concatenate([fw_exps[-1], bw_exps[-1]])
+
+
