@@ -1,40 +1,42 @@
 {
+  "terminal_dropout" : 0.0,
+  "word_droppiness": 0.0,
+
   "w_emb_size": 100,
   "p_emb_size": 20,
   "n_emb_size": 20,
   "a_emb_size": 20,
 
-  "c_emb_size_for_char": 0,
-  "c_emb_size_for_word": 0,
+  "c_emb_size_for_char": 10,
+  "c_emb_size_for_word": 100,
+
   "use_pretrained_emb": 1,
   "update_pretrained_emb": 0,
+
   "bilstm_layers" : 2,
 
   "buffer_lstm_layers": 2,
   "buffer_hidden_size": 100,
   "buffer_dropout": 0.0,
+  "buffer_ngram_count": -1,
 
   "action_lstm_layers": 2,
   "action_hidden_size": 100,
   "action_dropout": 0.0,
+  "action_ngram_count": -1,
 
-  "stack_ngram_count": 0,
   "stack_lstm_layers": 2,
-  "stack_hidden_size": 0,
+  "stack_hidden_size": 100,
   "stack_dropout": 0.0,
-
-  "terminal_dropout" : 0.1,
+  "stack_ngram_count": -1,
 
   "use_configuration_lstm": 0,
-
   "config_rep_size": 100,
-  "node_rep_size": 100,
+
+  "node_rep_size": 40,
+  "composition_function": "TreeLSTM",
+
   "beam_size": 1,
-
-  "composition_function": "HeadOnly",
-
-  "word_droppiness": 0.3,
-
   "laziness": "laziest",
   "optimizer": "Adam",
   "update_type": "sparse"

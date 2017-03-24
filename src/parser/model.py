@@ -113,7 +113,7 @@ def define_model(hyper_params, all_s2i, external_embeddings_file=None):
         params['ConfigurationLSTM'] = dy.LSTMBuilder(1, hyper_params['config_rep_size'], hyper_params['config_rep_size'], model)
 
     ################ stack lstm ################################
-    if "stack_ngram_count" in hyper_params:
+    if "stack_ngram_count" in hyper_params and hyper_params["stack_ngram_count"]>=0:
         actual_stack_rep_size = hyper_params["stack_ngram_count"]*hyper_params['node_rep_size']
         if actual_stack_rep_size != hyper_params['stack_hidden_size']:
             raise Exception("stack hidden size doesn't fit with stack n-gram count")
@@ -129,7 +129,7 @@ def define_model(hyper_params, all_s2i, external_embeddings_file=None):
             params['Stack_LSTM'].set_dropout(hyper_params['stack_dropout'])
 
     ################ buffer lstm ################################
-    if "buffer_ngram_count" in hyper_params:
+    if "buffer_ngram_count" in hyper_params and hyper_params["buffer_ngram_count"]>=0:
         actual_buffer_rep_size = hyper_params["buffer_ngram_count"]*hyper_params['node_rep_size']
         if actual_buffer_rep_size != hyper_params['buffer_hidden_size']:
             raise Exception("buffer hidden size doesn't fit with buffer n-gram count")
@@ -145,7 +145,7 @@ def define_model(hyper_params, all_s2i, external_embeddings_file=None):
             params['Buffer_LSTM'].set_dropout(hyper_params['buffer_dropout'])
 
     ################ action lstm ################################
-    if "action_ngram_count" in hyper_params:
+    if "action_ngram_count" in hyper_params and hyper_params["action_ngram_count"]>=0:
         actual_action_rep_size = hyper_params["action_ngram_count"]*hyper_params['node_rep_size']
         if actual_action_rep_size != hyper_params['action_hidden_size']:
             raise Exception("action hidden size doesn't fit with action n-gram count")
