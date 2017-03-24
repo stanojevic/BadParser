@@ -16,6 +16,8 @@ class StackLSTM:
             self.size = tail.size + 1
 
     def push(self, element):
+        if len(element.vector.npvalue())>100:
+            print('fuck')
         return StackLSTM(element, self, self._rnn_state.add_input(element.vector))
 
     def pop(self):

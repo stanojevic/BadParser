@@ -1,6 +1,7 @@
 class String2IntegerMapper:
 
     UNK = "<UNK>"
+    DROPPED = UNK
 
     def __init__(self):
         self.s2i = dict()

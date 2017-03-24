@@ -12,6 +12,8 @@ import re
 import numpy as np
 from time import time
 from math import isinf
+from random import random
+
 
 SCRIPT_FOLDER = os.path.realpath(os.path.abspath(os.path.split(inspect.getfile(inspect.currentframe()))[0]))
 MAIN_FOLDER = join(SCRIPT_FOLDER, pardir, pardir)
@@ -125,7 +127,14 @@ def laziest_satisfied(laziness, conf):
 def is_complete(node):
     return len(node.children) == len(node.attributes['real_me'].children)
 
-def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness):
+def add_terminal_vector_dropout(c, dropout_rate):
+    buffer_pointer = c.buffer
+    while buffer_pointer.size != 0:
+        t = buffer_pointer.top()
+        t.vector = dy.dropout(t.vector, dropout_rate)
+        buffer_pointer = buffer_pointer.pop()
+
+def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, terminal_dropout_rate):
     annotate_node_G_ordering(tree)
     find_me_a_mother(tree)
     if laziness == "lazy":
@@ -135,6 +144,11 @@ def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness):
         annotate_closest_projective_ancestor(tree, tree.attributes['<G'])
 
     words = [node.label for node in tree.give_me_terminal_nodes()]
+    if word_droppiness > 0:
+        for i in range(len(words)):
+            rand_num = random()
+            if rand_num < word_droppiness:
+                words[i] = String2IntegerMapper.DROPPED
     action_storage = ActionStorage(all_s2i.n2i, params['E_a'])
     init_conf = Configuration.construct_init_configuration(words, pos_seq, params, action_storage, all_s2i)
 
@@ -145,6 +159,8 @@ def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness):
         buffer_pointer = buffer_pointer.pop()
 
     c = init_conf
+    add_terminal_vector_dropout(c, terminal_dropout_rate)
+
 
     while not (c.is_final_configuration() and c.stack.top().label == tree.label):
 
@@ -345,7 +361,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         train_action_counts=[]
         for i, (tree, pos_seq) in enumerate(train_data, 1):
             dy.renew_cg()
-            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness)
+            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['terminal_dropout'])
             train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
             loss_value = loss.value()

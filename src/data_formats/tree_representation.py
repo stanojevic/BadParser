@@ -20,6 +20,7 @@ class TreeNode:
         self.attributes = attributes
 
         self.vector = None
+        self.memory_cell = None
 
     def is_equal_to(self, node):
         if self.covered_indices == node.covered_indices and self.label == node.label:
