@@ -181,8 +181,8 @@ class Configuration:
         return "("+self.stack.__repr__()+" ||| "+self.buffer.__repr__()+")"
 
     @staticmethod
-    def construct_init_configuration(words, pos_seq, params, action_storage, all_s2i):
-        leaf_nodes = Configuration._convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i)
+    def construct_init_configuration(words, pos_seq, params, action_storage, all_s2i, dropout_rate_embeddings=0.0):
+        leaf_nodes = Configuration._convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i, dropout_rate_embeddings)
         if 'BiLSTM' in params:
             leaf_vectors = [leaf_node.vector for leaf_node in leaf_nodes]
             new_leaf_vectors = params['BiLSTM'].transduce(leaf_vectors)
@@ -209,15 +209,15 @@ class Configuration:
         return buffer
 
     @staticmethod
-    def _convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i):
+    def _convert_sentence_to_list_of_tree_nodes(words, pos_seq, params, all_s2i, dropout_rate_embeddings):
         nodes = []
         for word, pos, word_position in zip(words, pos_seq, range(len(words))):
-            node = Configuration._convert_word_to_tree_node(word, pos, word_position, params, all_s2i)
+            node = Configuration._convert_word_to_tree_node(word, pos, word_position, params, all_s2i, dropout_rate_embeddings)
             nodes.append(node)
         return nodes
 
     @staticmethod
-    def _convert_word_to_tree_node(word, pos, word_position, params, all_s2i):
+    def _convert_word_to_tree_node(word, pos, word_position, params, all_s2i, dropout_rate_embeddings):
         node = TreeNode(word, [], {'tag': pos, 'word_position': word_position}, word_position=word_position)
         all_embeddings = []
         if 'E_w' in params:
@@ -236,6 +236,7 @@ class Configuration:
         V = dy.parameter(params['V'])
         v = dy.parameter(params['v'])
         input_vec = dy.concatenate(all_embeddings)
+        input_vec = dy.dropout(input_vec, dropout_rate_embeddings)
         node.vector = dy.rectify(V*input_vec+v)
         node.memory_cell = dy.inputVector(np.zeros(node.vector.npvalue().size))
         return node
