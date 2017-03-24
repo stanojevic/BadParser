@@ -1,42 +1,47 @@
-
+import itertools
 
 
 
 def createAllConfigs():
 
-    allParams, keys=config(sim)
-    configs= list(itertools.product(*allParams))
-    #hpList = [AllMyFields({x:y for x,y in zip(keys, c)}) for c in configs]
 
-    return configs, keys
+    word_dropout=[0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    #embedding_dropout=...
+    #...
+    recurrent_conf=[0,1]
 
-
-
-'''
-    Write one configuration file.
-'''
-def writeConfigFile(fname, config_dict):
-
-    fh = open(fname, "r")
-
-    #write json format
-
-
-    fh.close()
+    #...
 
 
 
+    confs = [word_dropout, recurrent_conf]
+    keys = ["word_dropout", "recurrent_conf"]
+    all_confs= list(itertools.product(*confs))
+
+
+    return all_confs, keys
 
 
 
-'''
-    Generate bash script to run all the configurations in a certain folder, in the LACO machines.
-'''
-def writeExecutorScript(fname)
-
-    fh = open(fname, "r")
-
-    #write bash script
+def writeConfigFiles(dirname, prefix):
 
 
-    fh.close()
+    all_confs, keys = createAllConfigs()
+
+    for idx, conf in enumerate(all_confs):
+        fh = open("{}/{}{}.json".format(dirname, prefix, idx), "w")
+
+        #write json format
+        fh.write("{\n")
+        for k,v in zip(keys, conf):
+            fh.write("\"{}\":{},\n".format(k, '\"'+v+'\"' if type(v) == str else v))
+
+
+        fh.write("}")
+        fh.close()
+
+
+
+
+if __name__ == "__main__":
+    writeConfigFiles("../test", "Config")
