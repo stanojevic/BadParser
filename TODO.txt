@@ -1,14 +1,26 @@
 
-on notice:
-
 the rest:
 
-10) recurrence in the configuration representation
-12) be able to turn off buffer, action or stack
-
-13) be able to turn off composition function
-15) Tree-LSTM and LeSTM
-
-17) word dropout
-
 18) automatic training, parsing and evaluation on all datasets
+
+
+
+Lessons:
+
+- node_size (recursive) matters (20 was good, 100 was bad)
+
+- char & external embeddings help
+
+unexplored:
+
+- does conf_rep_size matter?
+
+- layers for stack-lstm and for bi-lstm
+
+- is bilstm needed?
+
+- training pretrained embeddings?
+
+- word dropout
+
+

@@ -6,20 +6,36 @@ import numpy as np
 
 class Configuration:
 
-    def __init__(self, stack, buffer, actions, params, action_storage, log_prob, promote_count, prev_conf, last_action):
+    def __init__(self, stack, buffer, actions, params, action_storage, log_prob, promote_count, prev_conf_lstm_state, prev_conf, last_action):
         self.stack = stack
         self.buffer = buffer
         self.actions = actions
         self.action_storage = action_storage
         self.params = params
+        self.composition_function = params['composition_function']
         self.log_prob = log_prob
         self.promote_count = promote_count
         self.prev_conf = prev_conf
         self.last_action = last_action
-        conf_input_vec_rep = dy.concatenate([stack.vector, buffer.vector, actions.vector])
+
+        conf_input_vec_rep_raw = []
+        if stack.vector is not None:
+            conf_input_vec_rep_raw.append(stack.vector)
+        if buffer.vector is not None:
+            conf_input_vec_rep_raw.append(buffer.vector)
+        if actions.vector is not None:
+            conf_input_vec_rep_raw.append(actions.vector)
+        conf_input_vec_rep = dy.concatenate(conf_input_vec_rep_raw)
+
         w = dy.parameter(params['w'])
         W = dy.parameter(params['W'])
-        self.vector = W*conf_input_vec_rep + w
+        conf_raw_repr = W*conf_input_vec_rep + w
+        if prev_conf_lstm_state is None:
+            self.conf_lstm_state = None
+            self.vector = conf_raw_repr
+        else:
+            self.conf_lstm_state = prev_conf_lstm_state.add_input(conf_raw_repr)
+            self.vector = self.conf_lstm_state.output()
         self._memo_action_log_probabilities = None
         self._memo_allowed_transitions = None
 
@@ -95,7 +111,7 @@ class Configuration:
         actions = self.actions.push(action_object)
         stack = self.stack.push(self.buffer.top())
         buffer = self.buffer.pop()
-        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self, "shift")
+        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self.conf_lstm_state, self, "shift")
 
     def _tr_swap(self, transition_id):
         transition_log_prob = self.action_log_probabilities()[transition_id]
@@ -103,7 +119,7 @@ class Configuration:
         actions = self.actions.push(action_object)
         buffer = self.buffer.push(self.stack.second_top())
         stack = self.stack.pop().pop().push(self.stack.top())
-        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self, "swap")
+        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self.conf_lstm_state, self, "swap")
 
     def _tr_adj_left(self, transition_id):
         transition_log_prob = self.action_log_probabilities()[transition_id]
@@ -116,13 +132,12 @@ class Configuration:
         children.append(comp_const) #order will be sorted out later
 
         new_constituent = TreeNode(head_const.label, children, head_const.attributes)
-        U_adj = dy.parameter(self.params['U_adj'])
-        u_adj = dy.parameter(self.params['u_adj'])
-        input_rep = dy.concatenate([head_const.vector, comp_const.vector, dy.inputVector([1])])
-        new_constituent.vector = U_adj*input_rep+u_adj
+        new_memory_cell, new_vector = self.composition_function.compose(head_const.memory_cell, head_const.vector, comp_const.memory_cell, comp_const.vector, True)
+        new_constituent.vector = new_vector
+        new_constituent.memory_cell = new_memory_cell
 
         stack = self.stack.pop().pop().push(new_constituent)
-        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self, "adj_left")
+        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self.conf_lstm_state, self, "adj_left")
 
     def _tr_adj_right(self, transition_id):
         transition_log_prob = self.action_log_probabilities()[transition_id]
@@ -135,13 +150,12 @@ class Configuration:
         children.append(comp_const) #order will be sorted out later
 
         new_constituent = TreeNode(head_const.label, children, head_const.attributes)
-        U_adj = dy.parameter(self.params['U_adj'])
-        u_adj = dy.parameter(self.params['u_adj'])
-        input_rep = dy.concatenate([head_const.vector, comp_const.vector, dy.inputVector([-1])])
-        new_constituent.vector = U_adj*input_rep+u_adj
+        new_memory_cell, new_vector = self.composition_function.compose(head_const.memory_cell, head_const.vector, comp_const.memory_cell, comp_const.vector, False)
+        new_constituent.vector = new_vector
+        new_constituent.memory_cell = new_memory_cell
 
         stack = self.stack.pop().pop().push(new_constituent)
-        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self, "adj_right")
+        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, 0, self.conf_lstm_state, self, "adj_right")
 
     def _tr_promote(self, transition_id):
         transition_log_prob = self.action_log_probabilities()[transition_id]
@@ -152,15 +166,16 @@ class Configuration:
         child_const = self.stack.top()
         label = self.action_storage.pro_labels_string[transition_id]
         new_constituent = TreeNode(label, [child_const], {})
-        U_pro = dy.parameter(self.params['U_pro'])
-        u_pro = dy.parameter(self.params['u_pro'])
         nonterm_id = self.action_storage.pro_labels_int[transition_id]
         nonterm_emb = self.params['E_n'][nonterm_id]
-        input_rep = dy.concatenate([child_const.vector, nonterm_emb])
-        new_constituent.vector = dy.tanh(U_pro*input_rep+u_pro)
+
+        new_memory_cell, new_vector = self.composition_function.promote(child_const.memory_cell, child_const.vector, nonterm_emb)
+
+        new_constituent.vector = new_vector
+        new_constituent.memory_cell = new_memory_cell
 
         stack = self.stack.pop().push(new_constituent)
-        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, self.promote_count+1, self, "pro")
+        return Configuration(stack, buffer, actions, self.params, self.action_storage, self.log_prob + transition_log_prob, self.promote_count+1, self.conf_lstm_state, self, "pro")
 
     def __repr__(self):
         return "("+self.stack.__repr__()+" ||| "+self.buffer.__repr__()+")"
@@ -179,7 +194,12 @@ class Configuration:
 
         init_log_prob = dy.scalarInput(0)
 
-        return Configuration(init_stack, init_buffer, init_actions, params, action_storage, init_log_prob, 0, None, None)
+        if 'ConfigurationLSTM' in params:
+            conf_lstm_state = params['ConfigurationLSTM'].initial_state()
+        else:
+            conf_lstm_state = None
+
+        return Configuration(init_stack, init_buffer, init_actions, params, action_storage, init_log_prob, 0, conf_lstm_state, None, None)
 
     @staticmethod
     def _construct_init_buffer(elements, params):
@@ -200,8 +220,9 @@ class Configuration:
     def _convert_word_to_tree_node(word, pos, word_position, params, all_s2i):
         node = TreeNode(word, [], {'tag': pos, 'word_position': word_position}, word_position=word_position)
         all_embeddings = []
-        w_emb = params['E_w'][all_s2i.w2i[word]]
-        all_embeddings.append(w_emb)
+        if 'E_w' in params:
+            w_emb = params['E_w'][all_s2i.w2i[word]]
+            all_embeddings.append(w_emb)
         p_emb = params['E_p'][all_s2i.p2i[pos]]
         all_embeddings.append(p_emb)
         #if all_s2i.c2i is not None:
@@ -210,12 +231,13 @@ class Configuration:
             all_embeddings.append(c_emb_for_word)
         #if all_s2i.ext_w2i is not None:
         if 'E_pretrained' in params:
-            ext_embedding = dy.lookup(params['E_pretrained'], all_s2i.ext_w2i[word], update=False)
+            ext_embedding = dy.lookup(params['E_pretrained'], all_s2i.ext_w2i[word], update=params['E_pretrained_update'])
             all_embeddings.append(ext_embedding)
         V = dy.parameter(params['V'])
         v = dy.parameter(params['v'])
         input_vec = dy.concatenate(all_embeddings)
         node.vector = dy.rectify(V*input_vec+v)
+        node.memory_cell = dy.inputVector(np.zeros(node.vector.npvalue().size))
         return node
 
     @staticmethod
