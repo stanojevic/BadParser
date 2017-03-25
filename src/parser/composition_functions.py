@@ -8,6 +8,17 @@ class RecursiveNN(dy.Saveable):
         self.u_adj = model.add_parameters(node_rep_size)
         self.U_pro = model.add_parameters((node_rep_size, node_rep_size+nonterm_emb_size))
         self.u_pro = model.add_parameters(node_rep_size)
+        self.dropout_rate = 0.0
+        self.dropout_enabled = False
+
+    def set_dropout(self, dropout_rate):
+        self.dropout_rate = dropout_rate
+
+    def disable_dropout(self):
+        self.dropout_enabled = False
+
+    def enable_dropout(self):
+        self.dropout_enabled = True
 
     def compose(self, l_c, l_h, r_c, r_h, arrow_is_to_the_left):
         if arrow_is_to_the_left:
@@ -73,6 +84,17 @@ class TreeLSTM(dy.Saveable):
         self.W_f_nt    = model.add_parameters((node_rep_size, nonterm_emb_size))
         self.W_o_nt    = model.add_parameters((node_rep_size, nonterm_emb_size))
         self.W_u_nt    = model.add_parameters((node_rep_size, nonterm_emb_size))
+        self.dropout_rate = 0.0
+        self.dropout_enabled = False
+
+    def set_dropout(self, dropout_rate):
+        self.dropout_rate = dropout_rate
+
+    def disable_dropout(self):
+        self.dropout_enabled = False
+
+    def enable_dropout(self):
+        self.dropout_enabled = True
 
 
     def compose(self, c1, h1, c2, h2, arrow_is_to_the_left):
@@ -113,6 +135,8 @@ class TreeLSTM(dy.Saveable):
         f2 = dy.logistic(b_f_x + U_f_21*h1 + U_f_22*h2 + b_f)
         o = dy.logistic(b_o_x + U_o_1*h1 + U_o_2*h2 + b_o)
         u = dy.tanh(b_u_x + U_u_1*h1 + U_u_2*h2 + b_u)
+        if self.dropout_enabled:
+            u = dy.dropout(u, self.dropout_rate)
         c_new = dy.cmult(i, u) + dy.cmult(f1, c1) + dy.cmult(f2, c2)
         h_new = dy.cmult(o, dy.tanh(c_new))
 
@@ -135,6 +159,8 @@ class TreeLSTM(dy.Saveable):
         f = dy.logistic(W_f_nt*nonterm_emb + W_f*h + d_f)
         o = dy.logistic(W_o_nt*nonterm_emb + W_o*h + d_o)
         u = dy.tanh(W_u_nt*nonterm_emb + W_u*h + d_u)
+        if self.dropout_enabled:
+            u = dy.dropout(u, self.dropout_rate)
         c_new = dy.cmult(i, u) + dy.cmult(f, c)
         h_new = dy.cmult(o, dy.tanh(c_new))
 
@@ -217,6 +243,17 @@ class HeadOnly(dy.Saveable):
     def __init__(self, node_rep_size, nonterm_emb_size, model):
         self.dummy1 = model.add_parameters(node_rep_size)
         self.dummy2 = model.add_parameters(node_rep_size)
+        self.dropout_rate = 0.0
+        self.dropout_enabled = False
+
+    def set_dropout(self, dropout_rate):
+        self.dropout_rate = dropout_rate
+
+    def disable_dropout(self):
+        self.dropout_enabled = False
+
+    def enable_dropout(self):
+        self.dropout_enabled = True
 
     def compose(self, l_c, l_h, r_c, r_h, arrow_is_to_the_left):
         dy.parameter(self.dummy1)
@@ -279,6 +316,18 @@ class LeSTM(dy.Saveable):
         self.Wo_unary_c = model.add_parameters((node_rep_size, node_rep_size))
         self.wo_unary_bias = model.add_parameters(node_rep_size)
 
+        self.dropout_rate = 0.0
+        self.dropout_enabled = False
+
+    def set_dropout(self, dropout_rate):
+        self.dropout_rate = dropout_rate
+
+    def disable_dropout(self):
+        self.dropout_enabled = False
+
+    def enable_dropout(self):
+        self.dropout_enabled = True
+
     def compose(self, l_c, l_h, r_c, r_h, arrow_is_to_the_left):
 
         Wi_l_h = dy.parameter(self.Wi_l_h)
@@ -317,7 +366,10 @@ class LeSTM(dy.Saveable):
         f_l = dy.logistic(Wf_l_h*l_h + Wf_r_h*r_h + Wf_l_c*l_c + Wf_r_c*r_c+wf)
         f_r = dy.logistic(Wf_l_h*r_h + Wf_r_h*l_h + Wf_l_c*r_c + Wf_r_c*l_c+wf)
 
-        new_c = dy.cmult(f_l, l_c) + dy.cmult(f_r, r_c) + dy.tanh(dy.cmult(Wc_l * l_h, i_l) + dy.cmult(Wc_r * r_h, i_r) + wc)
+        new_u = dy.tanh(dy.cmult(Wc_l * l_h, i_l) + dy.cmult(Wc_r * r_h, i_r) + wc)
+        if self.dropout_enabled:
+            new_u = dy.dropout(new_u, self.dropout_rate)
+        new_c = dy.cmult(f_l, l_c) + dy.cmult(f_r, r_c) + new_u
 
         o = dy.logistic(Wo_l * l_h + Wo_r * r_h + Wo_c * new_c + wo)
 
@@ -345,7 +397,10 @@ class LeSTM(dy.Saveable):
         i = dy.logistic(Wi_unary_c*c + Wi_unary_h*h + Wi_unary_n*nonterm_emb + wi_unary)
         f = dy.logistic(Wf_unary_c*c + Wf_unary_h*h + Wf_unary_n*nonterm_emb + wf_unary)
 
-        new_c = dy.cmult(f, c) + dy.tanh(dy.cmult(i, Wc_unary*h + Wc_unary_n*nonterm_emb) + wc_unary)
+        new_u = dy.tanh(dy.cmult(i, Wc_unary*h + Wc_unary_n*nonterm_emb) + wc_unary)
+        if self.dropout_enabled:
+            new_u = dy.dropout(new_u, self.dropout_rate)
+        new_c = dy.cmult(f, c) + new_u
         o = dy.logistic(Wo_unary*h + Wo_unary_c*c + Wo_unary_n*nonterm_emb + wo_unary)
 
         new_h = dy.cmult(o, dy.tanh(new_c))

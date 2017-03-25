@@ -403,6 +403,7 @@ def validate(epoch, model_dir, params, all_s2i, beam_size, dev_data):
     params['Stack_LSTM'].disable_dropout()
     params['Buffer_LSTM'].disable_dropout()
     params['Action_LSTM'].disable_dropout()
+    params['composition_function'].disable_dropout()
 
     beam = BeamDecoder(params, all_s2i, beam_size)
     acc = 0
@@ -470,6 +471,7 @@ def validate(epoch, model_dir, params, all_s2i, beam_size, dev_data):
     params['Stack_LSTM'].enable_dropout()
     params['Buffer_LSTM'].enable_dropout()
     params['Action_LSTM'].enable_dropout()
+    params['composition_function'].enable_dropout()
 
     return acc/ntrees, acc30/ntrees30, acc40/ntrees40
 

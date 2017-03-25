@@ -171,6 +171,7 @@ def define_model(hyper_params, all_s2i, external_embeddings_file=None):
         params['composition_function'] = HeadOnly(hyper_params['node_rep_size'], hyper_params['n_emb_size'], model)
     else:
         raise Exception("Unknowon composition functions %s"%hyper_params["composition_function"])
+    params['composition_function'].set_dropout(hyper_params["composition_function_dropout"])
 
     # FFN for next action
     params['G'] = model.add_parameters((hyper_params['a_voc_size'], hyper_params['config_rep_size']))

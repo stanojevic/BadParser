@@ -1,6 +1,7 @@
 {
   "terminal_dropout" : 0.0,
   "word_droppiness": 0.0,
+  "composition_function_dropout": 0.0,
 
   "w_emb_size": 100,
   "p_emb_size": 20,
