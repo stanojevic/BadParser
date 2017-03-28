@@ -210,7 +210,7 @@ def load_model(model_dir):
     params['g'] = components[comp_index] ; comp_index+=1
     params['composition_function'] = components[comp_index] ; comp_index+=1
 
-    if "stack_ngram_count" in hyper_params:
+    if "stack_ngram_count" in hyper_params and hyper_params["stack_ngram_count"]>=0:
         params['Stack_LSTM'] = NGramBuilderNetwork(hyper_params["stack_ngram_count"], hyper_params['node_rep_size'])
     else:
         builder = components[comp_index] ; comp_index+=1
@@ -220,7 +220,7 @@ def load_model(model_dir):
             hyper_params['stack_hidden_size'],  # output size
             builder=builder)
 
-    if "buffer_ngram_count" in hyper_params:
+    if "buffer_ngram_count" in hyper_params and hyper_params["buffer_ngram_count"]>=0:
         params['Buffer_LSTM'] = NGramBuilderNetwork(hyper_params["buffer_ngram_count"], hyper_params['node_rep_size'])
     else:
         builder = components[comp_index] ; comp_index+=1
@@ -230,7 +230,7 @@ def load_model(model_dir):
             hyper_params['buffer_hidden_size'], # output size
             builder=builder)
 
-    if "action_ngram_count" in hyper_params:
+    if "action_ngram_count" in hyper_params and hyper_params["action_ngram_count"]>=0:
         params['Action_LSTM'] = NGramBuilderNetwork(hyper_params["action_ngram_count"], hyper_params['node_rep_size'])
     else:
         builder = components[comp_index] ; comp_index+=1
@@ -292,11 +292,11 @@ def save_model(model, params, hyper_params, model_dir, all_s2i):
     list_of_params.append(params['g'])
     list_of_params.append(params['composition_function'])
 
-    if "stack_ngram_count" not in hyper_params:
+    if hyper_params.get("stack_ngram_count", -1) < 0:
         list_of_params.append(params['Stack_LSTM'].builder)
-    if "buffer_ngram_count" not in hyper_params:
+    if hyper_params.get("buffer_ngram_count", -1) < 0:
         list_of_params.append(params['Buffer_LSTM'].builder)
-    if "action_ngram_count" not in hyper_params:
+    if hyper_params.get("action_ngram_count", -1) < 0:
         list_of_params.append(params['Action_LSTM'].builder)
 
     if _use_configuration_lstm(hyper_params):
