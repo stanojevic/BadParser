@@ -27,7 +27,7 @@ def create_all_confs():
         "use_pretrained_emb": [1],  # FIXED
         "update_pretrained_emb": [0], #, 1],  # FIXED
 
-        "bilstm_layers": [0,1,2],
+        "bilstm_layers": [2],  # [0,1,2], FIXED
 
         #Tree
         "node_rep_size": [40],   # [20, 40, 60, 80] FIXED
@@ -35,23 +35,23 @@ def create_all_confs():
 
         #Configuration
         "use_configuration_lstm": [0],  # [0, 1] FIXED
-        "config_rep_size": [50, 100],
+        "config_rep_size": [100],  # [50, 100], FIXED
 
         #Stack-LSTMs:
-        "stack_lstm_layers":   [0, 1, 2],
-        "stack_hidden_size": [50, 100],
+        "stack_lstm_layers":  [1],  # [0, 1, 2], FIXED
+        "stack_hidden_size": [100],  # [50, 100], FIXED
         "stack_dropout": [0.0],  # FIXED
-        "stack_ngram_count": [-1],
+        "stack_ngram_count": [-1],  # FIXED
 
-        "buffer_lstm_layers":   [0, 1, 2],
-        "buffer_hidden_size": [100],  # TIED
+        "buffer_lstm_layers":   [1],  # [0, 1, 2], FIXED
+        "buffer_hidden_size": [100],  # FIXED
         "buffer_dropout": [0.0],  # FIXED
-        "buffer_ngram_count": [-1],
+        "buffer_ngram_count": [-1],  # FIXED
 
-        "action_lstm_layers":   [0, 1, 2],
-        "action_hidden_size": [100],  # TIED
+        "action_lstm_layers":  [0], # [0, 1, 2], FIXED
+        "action_hidden_size": [0],  # FIXED
         "action_dropout": [0.0],  # FIXED
-        "action_ngram_count": [-1],
+        "action_ngram_count": [0], # FIXED
 
         #Fixed:
         "beam_size": [1],  # FIXED
