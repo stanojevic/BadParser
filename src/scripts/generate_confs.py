@@ -18,9 +18,9 @@ def createAllConfigs():
         #"char_emb_dize": [25, 50], \
 
         #Layers:
-        "bilstm_layers":       [2],      #range(3),\
-        "stack_lstm_layers":   [2],      #range(3),\
-        "buffer_lstm_layers":  [2],      #range(3),\
+        "bilstm_layers":       [2],      #range(3),
+        "stack_lstm_layers":   [2],      #range(3),
+        "buffer_lstm_layers":  [2],      #range(3),
         "action_lstm_layers":  [2]       #range(3),
 
 
