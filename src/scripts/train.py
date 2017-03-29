@@ -301,7 +301,7 @@ def count_transitions(final_conf, sent_id):
     return action_counts
 
 
-def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encoding, model_dir, epochs, hyper_params_desc_file, external_embeddings_file):
+def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encoding, model_dir, epochs, hyper_params_desc_file, external_embeddings_file, mini_batch_size):
     hyper_params = load_hyper_parameters_from_file(hyper_params_desc_file)
 
     best_validation_score = 0
@@ -349,9 +349,11 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         shuffle(train_data)
         closs = 0
         epoch_loss = 0
-        train_action_counts=[]
+        train_action_counts = []
+        mini_batch = []
         for i, (tree, pos_seq) in enumerate(train_data, 1):
-            dy.renew_cg()
+            if len(mini_batch) == 0:
+                dy.renew_cg()
             oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['terminal_dropout'])
             train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
@@ -361,7 +363,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
                 print("INF LOSS ON: %s"%(tree.__repr__()), file=stderr)
                 continue
             epoch_loss += loss_value
-            closs += loss.value()
+            closs += loss_value
             if i % reporting_frequency == 0:
                 closs /= reporting_frequency
                 print(file=stderr)
@@ -377,8 +379,15 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
             print(".", end="", file=stderr)
             stderr.flush()
 
-            loss.backward()
-            trainer.update()
+            mini_batch.append(loss)
+            if i % mini_batch_size == 0 or i == train_data_size:
+                mini_batch_loss = mini_batch[0]
+                for loss in mini_batch[1:]:
+                    mini_batch_loss += loss
+                mini_batch_loss = dy.cdiv(mini_batch_loss, dy.scalarInput(float(len(mini_batch))))
+                mini_batch_loss.backward()
+                trainer.update()
+                mini_batch = []
         trainer.update_epoch()
 
         validation_score, validation_score30, validation_score40 =\
@@ -514,6 +523,8 @@ if __name__ == "__main__":
     parser.add_argument("--dev_pos_file", required=True, type=str, help="stanford tagger format(sep /) development file")
     parser.add_argument("--external_embeddings_file", default=None, type=str, help="csv file with embeddings")
     parser.add_argument("--dynet-mem", default=512, type=int, help="memory for the neural network")
+    parser.add_argument("--dynet-weight-decay", default=0, type=float, help="weight decay (L2) for the neural network")
+    parser.add_argument("--mini_batch_size", default=1, type=int, help="mini-batch size")
     parser.add_argument("--encoding", type=str, default="utf-8",
                         help="Export format encoding default=utf-8, alternative latin1")
     parser.add_argument("--epochs", required=True, type=int, help="number of epochs")
@@ -534,5 +545,5 @@ if __name__ == "__main__":
     if not exists(args.model_dir):
         mkdir(args.model_dir)
 
-    main(args.train_trees_file, args.train_pos_file, args.dev_trees_file, args.dev_pos_file, args.encoding, args.model_dir, args.epochs, args.hyper_params_file, args.external_embeddings_file)
+    main(args.train_trees_file, args.train_pos_file, args.dev_trees_file, args.dev_pos_file, args.encoding, args.model_dir, args.epochs, args.hyper_params_file, args.external_embeddings_file, args.mini_batch_size)
 

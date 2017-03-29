@@ -68,7 +68,7 @@ def train_and_tag_stanford(stanford_tagger_dir, fold_train, fold_test):
     system(train_cmd)
 
     test_out_fn = join(tmp_dir, "test-tagged")
-    test_cmd = "java -mx1300m -classpath %s/stanford-postagger.jar edu.stanford.nlp.tagger.maxent.MaxentTagger -model %s -textFile %s > %s"%(stanford_tagger_dir, model_fn, test_fn, test_out_fn)
+    test_cmd = "java -mx1300m -classpath %s/stanford-postagger.jar edu.stanford.nlp.tagger.maxent.MaxentTagger -preserveLines -sentenceDelimiter newline -tokenize false  -model %s -textFile %s > %s"%(stanford_tagger_dir, model_fn, test_fn, test_out_fn)
     system(test_cmd)
 
     return load_lines(test_out_fn)

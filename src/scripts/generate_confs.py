@@ -8,61 +8,98 @@ import argparse
 
 
 # command for finding the best configuration from log*.err files
-# for X in log.train_node_*.err ; do cat $X | grep acc | sed "s/$/  $X/" | sed "s/\(.* acc: \)\([^ ]*\)/\2 \1\2/" ; done | sort -n
+# for X in log.*.err ; do cat $X | grep acc | sed "s/\(epoch [^ ]*\)\(.* acc: \)\([^ ]*\).*/\3 \1 $X/" ; done | sort -n | less
+# for X in log.*.err ; do cat $X | grep acc | sed "s/epoch \([^ ]*\)\(.* acc: \)\([^ ]*\).*/\3 epoch_\1 $X/" ; done | sort -n | sed "s/log\.train_DROPS_IDX[^_]*___//" | sed "s/.err//" | sed "s/___/ /g"
 def create_all_confs():
 
     conf_dict = {
-        "terminal_dropout": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
-        "word_droppiness": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
-        "composition_function_dropout": [0.0, 0.2, 0.4],
+        "terminal_dropout": [0.0], #, 0.1, 0.2, 0.3, 0.4, 0.5], FIXED
+        "word_droppiness": [0.0], #, 0.1, 0.2, 0.3, 0.4, 0.5], FIXED
+        "composition_function_dropout": [0.0], #, 0.2, 0.4], FIXED
 
-        "w_emb_size": [100],  # [30, 100],
-        "p_emb_size": [20],
-        "n_emb_size": [20],
-        "a_emb_size": [20],
-        "c_emb_size_for_char": [10],
-        "c_emb_size_for_word": [100], # [25, 50, 100]
+        "w_emb_size": [100],  # [0, 30, 100], FIXED
+        "p_emb_size": [20],   # [10, 20] FIXED
+        "n_emb_size": [20],   # [10, 20] FIXED
+        "a_emb_size": [20],   # [10, 20] FIXED
+        "c_emb_size_for_char": [10],  # FIXED
+        "c_emb_size_for_word": [100],  # [20, 50, 100] FIXED
 
         "use_pretrained_emb": [1],  # FIXED
-        "update_pretrained_emb": [0],  # FIXED
+        "update_pretrained_emb": [0], #, 1],  # FIXED
 
-        "bilstm_layers": [2],  # [0,1,2],
+        "bilstm_layers": [2],  # [0,1,2], FIXED
 
         #Tree
-        "node_rep_size": [40],   # [30, 40, 50, 60, 70, 80]
-        "composition_function": ["TreeLSTM"],
+        "node_rep_size": [40],   # [20, 40, 60, 80] FIXED
+        "composition_function": ["TreeLSTM"],  # FIXED
 
         #Configuration
-        "use_configuration_lstm": [0],  # [0, 1]
-        "config_rep_size": [100],  # [50, 100]
+        "use_configuration_lstm": [0],  # [0, 1] FIXED
+        "config_rep_size": [100],  # [50, 100], FIXED
 
         #Stack-LSTMs:
-        "stack_lstm_layers":   [2],  # [1,2],
-        "stack_hidden_size": [100],  # [50, 100],
-        "stack_dropout": [0.0],
-        "stack_ngram_count": [-1],
+        "stack_lstm_layers":  [1],  # [0, 1, 2], FIXED
+        "stack_hidden_size": [100],  # [50, 100], FIXED
+        "stack_dropout": [0.0],  # FIXED
+        "stack_ngram_count": [-1],  # FIXED
 
-        "buffer_lstm_layers":   [2],  # [1,2],
-        "buffer_hidden_size": [100],  # [50, 100],
-        "buffer_dropout": [0.0],
-        "buffer_ngram_count": [-1],
+        "buffer_lstm_layers":   [1],  # [0, 1, 2], FIXED
+        "buffer_hidden_size": [100],  # FIXED
+        "buffer_dropout": [0.0],  # FIXED
+        "buffer_ngram_count": [-1],  # FIXED
 
-        "action_lstm_layers":   [2],  # [1,2],
-        "action_hidden_size": [100],  # [50, 100],
-        "action_dropout": [0.0],
-        "action_ngram_count": [-1],
+        "action_lstm_layers":  [0], # [0, 1, 2], FIXED
+        "action_hidden_size": [0],  # FIXED
+        "action_dropout": [0.0],  # FIXED
+        "action_ngram_count": [0], # FIXED
 
         #Fixed:
-        "beam_size": [1],
-        "laziness": ["laziest"],
-        "optimizer": ["Adam"],
-        "update_type": ["sparse"]
+        "beam_size": [1],  # FIXED
+        "laziness": ["laziest"],  # FIXED
+        "optimizer": ["Adam"],  # FIXED
+        "update_type": ["sparse"]  # FIXED
 
     }
 
     confs = conf_dict.values()
     keys = conf_dict.keys()
     all_confs= list(itertools.product(*confs))
+
+    ### EXTRA
+    for i, key in enumerate(keys):
+        if key == "stack_lstm_layers":
+            stack_lstm_layers_index = i
+        elif key == "buffer_lstm_layers":
+            buffer_lstm_layers_index = i
+        elif key == "action_lstm_layers":
+            action_lstm_layers_index = i
+        elif key == "stack_hidden_size":
+            stack_hidden_size_index = i
+        elif key == "buffer_hidden_size":
+            buffer_hidden_size_index = i
+        elif key == "action_hidden_size":
+            action_hidden_size_index = i
+        elif key == "stack_ngram_count":
+            stack_ngram_count_index = i
+        elif key == "buffer_ngram_count":
+            buffer_ngram_count_index = i
+        elif key == "action_ngram_count":
+            action_ngram_count_index = i
+
+    for i, all_confs_entry in enumerate(all_confs):
+        conf = list(all_confs_entry)
+        conf[buffer_hidden_size_index] = conf[stack_hidden_size_index]
+        conf[action_hidden_size_index] = conf[stack_hidden_size_index]
+        if conf[stack_lstm_layers_index] == 0:
+            conf[stack_ngram_count_index] = 0
+            conf[stack_hidden_size_index] = 0
+        if conf[buffer_lstm_layers_index] == 0:
+            conf[buffer_ngram_count_index] = 0
+            conf[buffer_hidden_size_index] = 0
+        if conf[action_lstm_layers_index] == 0:
+            conf[action_ngram_count_index] = 0
+            conf[action_hidden_size_index] = 0
+        all_confs[i] = conf
 
     return all_confs, keys
 
@@ -74,7 +111,10 @@ def write_config_files(dirname, prefix):
     all_confs, keys = create_all_confs()
 
     properties_to_show_in_filename = \
-        ["terminal_dropout", "word_droppiness", "composition_function_dropout"]
+        ["bilstm_layers", "stack_lstm_layers", "buffer_lstm_layers", "action_lstm_layers", "stack_hidden_size", "config_rep_size"]
+        #["w_emb_size", "p_emb_size", "n_emb_size", "a_emb_size", "c_emb_size_for_word", "node_rep_size"]
+        #["update_pretrained_emb"]
+        #["terminal_dropout", "word_droppiness", "composition_function_dropout"]
 
     for idx, conf in enumerate(all_confs):
         properties = dict(zip(keys, conf))
@@ -97,6 +137,7 @@ def write_config_files(dirname, prefix):
                     line_to_print += ","
                 print(line_to_print, file=fh)
             print("}", file=fh)
+    print("%d generated"%len(all_confs), file=stderr)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
