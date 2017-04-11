@@ -1,3 +1,5 @@
+
+NUMBER OF SWAPS
 milosh.stanojevic: the most important transition is of course number of swaps
 milosh.stanojevic: others are not that import
 milosh.stanojevic: we will have the same type of file for lazy and eager
@@ -10,6 +12,10 @@ rgalhama@gmail.com: yes i'll put error bars
 rgalhama@gmail.com: or boxplots
 rgalhama@gmail.com: i hope they don't override too much
 rgalhama@gmail.com: i'll have to think sth creative otherwise
+
+
+
+PARSING TIME
 milosh.stanojevic: you can also try to make a plot for this /home/mstanoj1/experiments/2017_EMNLP_NPCNP/models/FINAL_mb_5_l2_0.0000001/parse_time_log/parse_time_8
 milosh.stanojevic: in the simlar way
 milosh.stanojevic: x-axis sentence lenght y-axis time taken to parse a sentence

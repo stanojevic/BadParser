@@ -32,7 +32,8 @@ def meanSwapsShadowLine(datafile, legend=""):
     plt.plot(idx, means, 'r', marker="p", lw=1.5, label=legend)
     plt.fill_between(idx, means+stds, means-stds, color="r", alpha=0.2)
     plt.legend(loc="upper left")
-    plt.show()
+    #plt.show()
+    plt.savefig("swaps%s.pdf"%legend)
     plt.close()
 
 if __name__ == "__main__":
