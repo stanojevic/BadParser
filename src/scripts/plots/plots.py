@@ -17,25 +17,43 @@ def meanSwapsErrorBars(datafile):
     plt.show()
     plt.close()
 
-def meanSwapsShadowLine(datafile, legend=""):
+def meanSwapsShadowedLine(datafile, prefix, ylabel, xmax=None):
 
     #Process data
-    df = pd.read_csv(datafile, delimiter=" ")
-    grouped = df.groupby("num_words", as_index=True)
+    df = pd.read_csv(datafile, delimiter=",")
+    grouped = df.groupby("words", as_index=True)
     idx = grouped.groups.keys()
-    means=grouped.mean()['swap']
-    stds=grouped.std(ddof=0)['swap']
+
+
+    all_means=grouped.mean()
+    all_stds=grouped.std(ddof=0)
+
 
     #Plot
-    plt.xlabel("Sentence Length", fontsize=15)
-    plt.ylabel("Mean Number of Swaps", fontsize=15)
-    plt.plot(idx, means, 'r', marker="p", lw=1.5, label=legend)
-    plt.fill_between(idx, means+stds, means-stds, color="r", alpha=0.2)
+    cols = [prefix+laziness for laziness in ('Eager', 'Lazy', 'Lazier')]
+    labels = ('Eager', 'Lazy', 'Lazier')
+    markers = ('p', '^', '8')
+    color = ('aquamarine', 'gold', 'purple')
+    if xmax is not None:
+        plt.xlim(0,xmax+2)
+    for i in range(len(cols)):
+        means = all_means[cols[i]][:xmax]
+        stds = all_stds[cols[i]][:xmax]
+        idx = idx[:xmax]
+        plt.xlabel("Sentence Length", fontsize=15)
+        plt.ylabel(ylabel, fontsize=15)
+        plt.plot(idx, means, color[i], marker=markers[i], lw=1.5, label=labels[i])
+        plt.fill_between(idx, means+stds, means-stds, color=color[i], alpha=0.5*1/(i+1))
     plt.legend(loc="upper left")
     #plt.show()
-    plt.savefig("swaps%s.pdf"%legend)
+    plt.savefig("%sswaps.pdf"%prefix)
     plt.close()
 
+
+
+
 if __name__ == "__main__":
-    datafile = "transition_counts_training_set_log.csv"
-    meanSwapsShadowLine(datafile, legend="Eager")
+    datafile = "all_stats.csv"
+    meanSwapsShadowedLine(datafile, prefix="swaps", ylabel="swaps", xmax=90)
+    meanSwapsShadowedLine(datafile, prefix="avgAltBlockSize", ylabel="avg alt block size", xmax=90)
+    meanSwapsShadowedLine(datafile, prefix="avgBlockSize", ylabel=" avgBlockSize", xmax=90)
