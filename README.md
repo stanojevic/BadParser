@@ -48,7 +48,9 @@ Parameter                                                | Description
 --dynet-mem DYNET_MEM                                    | memory for the neural network
 --beam_size BEAM_SIZE                                    | beam size
 
-
+License
+-------
+BadParser is licensed under Apache license 2.0.
 
 Authors
 -------
