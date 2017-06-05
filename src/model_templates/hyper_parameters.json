@@ -1,6 +1,7 @@
 {
   "terminal_dropout" : 0.0,
   "word_droppiness": 0.0,
+  "tag_droppiness": 0.9,
   "composition_function_dropout": 0.0,
 
   "w_emb_size": 100,
@@ -36,9 +37,12 @@
 
   "node_rep_size": 40,
   "composition_function": "TreeLSTM",
+  "composition_function_head_ordered": 1,
 
   "beam_size": 1,
   "laziness": "laziest",
   "optimizer": "Adam",
+  "optimizer_b1": 0.9,
+  "optimizer_b2": 0.9,
   "update_type": "sparse"
 }

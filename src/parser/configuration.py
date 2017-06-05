@@ -132,7 +132,10 @@ class Configuration:
         children.append(comp_const) #order will be sorted out later
 
         new_constituent = TreeNode(head_const.label, children, head_const.attributes)
-        new_memory_cell, new_vector = self.composition_function.compose(head_const.memory_cell, head_const.vector, comp_const.memory_cell, comp_const.vector, True)
+        if self.params['composition_function_head_ordered']:
+            new_memory_cell, new_vector = self.composition_function.compose(head_const.memory_cell, head_const.vector, comp_const.memory_cell, comp_const.vector, True)
+        else:
+            new_memory_cell, new_vector = self.composition_function.compose(comp_const.memory_cell, comp_const.vector, head_const.memory_cell, head_const.vector, True)
         new_constituent.vector = new_vector
         new_constituent.memory_cell = new_memory_cell
 

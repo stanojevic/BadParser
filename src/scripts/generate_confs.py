@@ -15,6 +15,7 @@ def create_all_confs():
     conf_dict = {
         "terminal_dropout": [0.0], #, 0.1, 0.2, 0.3, 0.4, 0.5], FIXED
         "word_droppiness": [0.0], #, 0.1, 0.2, 0.3, 0.4, 0.5], FIXED
+        "tag_droppiness": [0.0], # , 0.1, 0.2, 0.3, 1.0], FIXED
         "composition_function_dropout": [0.0], #, 0.2, 0.4], FIXED
 
         "w_emb_size": [100],  # [0, 30, 100], FIXED
@@ -32,6 +33,7 @@ def create_all_confs():
         #Tree
         "node_rep_size": [40],   # [20, 40, 60, 80] FIXED
         "composition_function": ["TreeLSTM"],  # FIXED
+        "composition_function_head_ordered": [1], # ,0] FIXED
 
         #Configuration
         "use_configuration_lstm": [0],  # [0, 1] FIXED
@@ -57,6 +59,8 @@ def create_all_confs():
         "beam_size": [1],  # FIXED
         "laziness": ["laziest"],  # FIXED
         "optimizer": ["Adam"],  # FIXED
+        "optimizer_b1": [0.9], # FIXED
+        "optimizer_b2": [0.999], # FIXED
         "update_type": ["sparse"]  # FIXED
 
     }
@@ -85,6 +89,10 @@ def create_all_confs():
             buffer_ngram_count_index = i
         elif key == "action_ngram_count":
             action_ngram_count_index = i
+        elif key == "tag_droppiness":
+            tag_droppiness_index = i
+        elif key == "p_emb_size":
+            p_emb_size_index = i
 
     for i, all_confs_entry in enumerate(all_confs):
         conf = list(all_confs_entry)
@@ -99,22 +107,29 @@ def create_all_confs():
         if conf[action_lstm_layers_index] == 0:
             conf[action_ngram_count_index] = 0
             conf[action_hidden_size_index] = 0
+        if conf[tag_droppiness_index] == 1.0:
+            conf[p_emb_size_index] = 2
         all_confs[i] = conf
 
-    return all_confs, keys
+    properties_to_show_in_filename = []
+    for key, value in conf_dict.items():
+        if len(value)>1:
+            properties_to_show_in_filename.append(key)
+
+    return all_confs, keys, properties_to_show_in_filename
 
 
 def write_config_files(dirname, prefix):
     if not exists(dirname):
         mkdir(dirname)
 
-    all_confs, keys = create_all_confs()
+    all_confs, keys, properties_to_show_in_filename = create_all_confs()
 
-    properties_to_show_in_filename = \
-        ["bilstm_layers", "stack_lstm_layers", "buffer_lstm_layers", "action_lstm_layers", "stack_hidden_size", "config_rep_size"]
-        #["w_emb_size", "p_emb_size", "n_emb_size", "a_emb_size", "c_emb_size_for_word", "node_rep_size"]
-        #["update_pretrained_emb"]
-        #["terminal_dropout", "word_droppiness", "composition_function_dropout"]
+    #properties_to_show_in_filename = \
+    #    ["bilstm_layers", "stack_lstm_layers", "buffer_lstm_layers", "action_lstm_layers", "stack_hidden_size", "config_rep_size"]
+    #    #["w_emb_size", "p_emb_size", "n_emb_size", "a_emb_size", "c_emb_size_for_word", "node_rep_size"]
+    #    #["update_pretrained_emb"]
+    #    #["terminal_dropout", "word_droppiness", "composition_function_dropout"]
 
     for idx, conf in enumerate(all_confs):
         properties = dict(zip(keys, conf))

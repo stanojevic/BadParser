@@ -78,6 +78,7 @@ def transform_fn_to_predicted(gold_file_name):
     dir = dirname(gold_file_name)
     return join(dir, base.replace("gold", "predicted"))
 
+
 def main(stanford_tagger_dir, folds, train_tag_file, dev_tag_file, test_tag_file):
     train_lines = load_lines(train_tag_file)
     chunks = split_into_chunks(train_lines, folds)

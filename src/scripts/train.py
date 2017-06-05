@@ -127,7 +127,7 @@ def laziest_satisfied(laziness, conf):
 def is_complete(node):
     return len(node.children) == len(node.attributes['real_me'].children)
 
-def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, terminal_dropout_rate):
+def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, tag_droppiness, terminal_dropout_rate):
     annotate_node_G_ordering(tree)
     find_me_a_mother(tree)
     if laziness == "lazy":
@@ -142,8 +142,14 @@ def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppin
             rand_num = random()
             if rand_num < word_droppiness:
                 words[i] = String2IntegerMapper.DROPPED
+    new_pos_seq = pos_seq.copy()
+    if tag_droppiness > 0:
+        for i in range(len(new_pos_seq)):
+            rand_num = random()
+            if rand_num < tag_droppiness:
+                new_pos_seq[i] = String2IntegerMapper.UNK
     action_storage = ActionStorage(all_s2i.n2i, params['E_a'])
-    init_conf = Configuration.construct_init_configuration(words, pos_seq, params, action_storage, all_s2i, terminal_dropout_rate)
+    init_conf = Configuration.construct_init_configuration(words, new_pos_seq, params, action_storage, all_s2i, terminal_dropout_rate)
 
     leafs = tree.give_me_terminal_nodes()
     buffer_pointer = init_conf.buffer
@@ -332,7 +338,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
     if hyper_params['optimizer'] == "AdaGrad":
         trainer = dy.AdagradTrainer(model)
     elif hyper_params['optimizer'] == "Adam":
-        trainer = dy.AdamTrainer(model)
+        trainer = dy.AdamTrainer(model, beta_1=hyper_params['optimizer_b1'], beta_2=hyper_params['optimizer_b2'])
     elif hyper_params['optimizer'] == "SGD":
         trainer = dy.SimpleSGDTrainer(model)
 
@@ -354,7 +360,7 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         for i, (tree, pos_seq) in enumerate(train_data, 1):
             if len(mini_batch) == 0:
                 dy.renew_cg()
-            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['terminal_dropout'])
+            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['tag_droppiness'], hyper_params['terminal_dropout'])
             train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
             loss_value = loss.value()

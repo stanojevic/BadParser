@@ -39,22 +39,47 @@ def main(negra_file, encoding, output_folder):
         if sent_length <= 30:
             filtered_trees.append(tree)
 
-    train, dev, test = negra_split(trees)
-
     if not exists(output_folder):
         mkdir(output_folder)
 
-    save_trees(train, join(output_folder, "train.export"))
-    save_trees(dev, join(output_folder, "dev.export"))
-    save_trees(test, join(output_folder, "test.export"))
 
-    save_tags(train, join(output_folder, "train.tags.gold"))
-    save_tags(dev, join(output_folder, "dev.tags.gold"))
-    save_tags(test, join(output_folder, "test.tags.gold"))
+    train, dev, test = negra_split(filtered_trees)
+    curr_output_folder = join(output_folder, "negra_30")
+    if not exists(curr_output_folder):
+        mkdir(curr_output_folder)
 
-    save_sents(train, join(output_folder, "train.raw"))
-    save_sents(dev, join(output_folder, "dev.raw"))
-    save_sents(test, join(output_folder, "test.raw"))
+    save_trees(train, join(curr_output_folder, "train.export"))
+    save_trees(dev, join(curr_output_folder, "dev.export"))
+    save_trees(test, join(curr_output_folder, "test.export"))
+
+    save_tags(train, join(curr_output_folder, "train.tags.gold"))
+    save_tags(dev, join(curr_output_folder, "dev.tags.gold"))
+    save_tags(test, join(curr_output_folder, "test.tags.gold"))
+
+    save_sents(train, join(curr_output_folder, "train.raw"))
+    save_sents(dev, join(curr_output_folder, "dev.raw"))
+    save_sents(test, join(curr_output_folder, "test.raw"))
+
+
+
+
+
+    train, dev, test = negra_split(trees)
+    curr_output_folder = join(output_folder, "negra_all")
+    if not exists(curr_output_folder):
+        mkdir(curr_output_folder)
+
+    save_trees(train, join(curr_output_folder, "train.export"))
+    save_trees(dev, join(curr_output_folder, "dev.export"))
+    save_trees(test, join(curr_output_folder, "test.export"))
+
+    save_tags(train, join(curr_output_folder, "train.tags.gold"))
+    save_tags(dev, join(curr_output_folder, "dev.tags.gold"))
+    save_tags(test, join(curr_output_folder, "test.tags.gold"))
+
+    save_sents(train, join(curr_output_folder, "train.raw"))
+    save_sents(dev, join(curr_output_folder, "dev.raw"))
+    save_sents(test, join(curr_output_folder, "test.raw"))
 
 if __name__ == "__main__":
 

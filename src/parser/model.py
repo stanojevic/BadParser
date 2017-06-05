@@ -173,6 +173,11 @@ def define_model(hyper_params, all_s2i, external_embeddings_file=None):
         raise Exception("Unknowon composition functions %s"%hyper_params["composition_function"])
     params['composition_function'].set_dropout(hyper_params["composition_function_dropout"])
 
+    if hyper_params['composition_function_head_ordered']:
+        params['composition_function_head_ordered'] = True
+    else:
+        params['composition_function_head_ordered'] = False
+
     # FFN for next action
     params['G'] = model.add_parameters((hyper_params['a_voc_size'], hyper_params['config_rep_size']))
     params['g'] = model.add_parameters(hyper_params['a_voc_size'])
@@ -209,6 +214,10 @@ def load_model(model_dir):
     params['G'] = components[comp_index] ; comp_index+=1
     params['g'] = components[comp_index] ; comp_index+=1
     params['composition_function'] = components[comp_index] ; comp_index+=1
+    if hyper_params['composition_function_head_ordered']:
+        params['composition_function_head_ordered'] = True
+    else:
+        params['composition_function_head_ordered'] = False
 
     if "stack_ngram_count" in hyper_params and hyper_params["stack_ngram_count"]>=0:
         params['Stack_LSTM'] = NGramBuilderNetwork(hyper_params["stack_ngram_count"], hyper_params['node_rep_size'])
@@ -344,11 +353,12 @@ def load_embeddings(file):
     embeddings_list = []
     with open(file) as fh:
         for line in fh:
-            fields = line.rstrip().split("\t")
+            fields = line.rstrip().split(" ")
             word = fields[0]
             w2i.add_string(word)
             embeddings_list.append(list(map(float, fields[1:])))
     return w2i, np.array(embeddings_list)
+
 
 def load_pos_tags(file):
     all_pos_tags = []
