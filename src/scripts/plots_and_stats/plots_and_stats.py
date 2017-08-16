@@ -68,8 +68,10 @@ def plotBeam(datafile):
     plt.close()
 
 
+'''
+    Used for table in paper: "Average number of swaps and jump sizes per sentence".
+'''
 def meansOfMeans(datafile):
-
 
     df = pd.read_csv(datafile, delimiter=",")
     df = df.loc[df["swapsEager"]>0]
@@ -80,14 +82,23 @@ def meansOfMeans(datafile):
     mean_of_means = all_means.mean()
     std_of_means = all_means.std()
 
+    #Print in latex format:
     print "& Average number of swaps & Average jump size \\\\"
     print "\hline"
     for laziness in ("Eager", "Lazy", "Lazier"):
-	    
-    	print "{} & {}({}) & {}({})\\\\".format(laziness, mean_of_means["swaps{}".format(laziness)], std_of_means["swaps%s"%laziness], mean_of_means["avgAltBlockSize%s"%laziness], std_of_means["avgAltBlockSize%s"%laziness])
+        print "{} & {}({}) & {}({})\\\\".format(laziness, \
+                                                mean_of_means["swaps%s"%laziness], \
+                                                std_of_means["swaps%s"%laziness], \
+                                                mean_of_means["avgAltBlockSize%s"%laziness], \
+                                                std_of_means["avgAltBlockSize%s"%laziness])
 
 
-def stats(datafile):
+
+
+'''
+    Biggest difference in number of swaps and jump size, for different oracles.
+'''
+def compare_swaps_jumps_between_oracles(datafile):
 
     df = pd.read_csv(datafile, delimiter=",")
     df = df.loc[df["swapsEager"]>0]
@@ -115,8 +126,6 @@ def stats(datafile):
 
     print df["avgAltBlockSizeLazier"].max()
 
-
-
     #df.apply(df["swapsEager"] - df["swapsLazy"], axis=1)
 
 
@@ -124,7 +133,7 @@ if __name__ == "__main__":
     datafile = "all_stats.csv"
 
     meansOfMeans(datafile)
-
+    #compare_swaps_jumps_between_oracles(datafile)
     #meanSwapsShadowedLine(datafile, prefix="swaps", ylabel="Mean number of swaps", xmax=80, ylim=(-35, 205))
     #meanSwapsShadowedLine(datafile, prefix="avgAltBlockSize", ylabel="Mean size of the swap jump", xmax=80, ylim=(-13, 55))
     #meanSwapsShadowedLine(datafile, prefix="avgBlockSize", ylabel=" avgBlockSize", xmax=90)
