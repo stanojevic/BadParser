@@ -44,5 +44,6 @@
   "optimizer": "Adam",
   "optimizer_b1": 0.9,
   "optimizer_b2": 0.9,
-  "update_type": "sparse"
+  "update_type": "sparse",
+  "<ind": "Dist2"
 }

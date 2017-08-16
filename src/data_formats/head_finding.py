@@ -35,7 +35,7 @@ class HeadFinder:
             for child in node.children:
                 self.mark_head(child)
 
-            rules = self.rules[node.label.lower()]
+            rules = self.rules[node.label.lower().split("-")[0]]
             for direction, nonterms in rules:
                 if direction == "left-to-right":
                     numeration = list(enumerate(node.children))

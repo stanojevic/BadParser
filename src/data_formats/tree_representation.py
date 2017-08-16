@@ -3,6 +3,8 @@ class TreeNode:
     def __init__(self, label, children, attributes, word_position=None): # word_id only for terminals
         self.label = label
 
+        self._memo_is_gap_creator = None
+        self._memo_is_projective = None
         if word_position is not None:
             self._memo_covered_indices = set([word_position])
         else:
@@ -28,6 +30,34 @@ class TreeNode:
         else:
             return False
 
+    @property
+    def biggest_gap_size(self):
+        biggest_gap_size = 0
+        last_i = None
+        for i in self.covered_indices:
+            if last_i is None:
+                last_i = i
+                continue
+            if i - last_i - 1 > biggest_gap_size:
+                biggest_gap_size = i - last_i -1
+        return biggest_gap_size
+
+
+    def is_gap_creator(self, max_gap_size):
+        if self._memo_is_gap_creator is None:
+            for child in self.children:
+                if child.biggest_gap_size > max_gap_size:
+                    self._memo_is_gap_creator = True
+                    break
+            self._memo_is_gap_creator = False
+        return self._memo_is_gap_creator
+
+
+    @property
+    def is_projective(self):
+        if self._memo_is_projective is None:
+            self._memo_is_projective = (max(self.covered_indices)-min(self.covered_indices) + 1 == len(self.covered_indices))
+        return self._memo_is_projective
 
     @property
     def covered_indices(self):

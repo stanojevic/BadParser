@@ -25,18 +25,22 @@ def load_from_export_format(export_file, encoding):
             elif line.startswith("#EOS"):
                 sent_id2 = int(line.split(" ")[1])
                 assert(sent_id == sent_id2)
-                tree = _give_me_a_tree_from_export_format(buffered_lines)
-                buffered_lines = []
-                tree.attributes["sent_id"] = sent_id
-                trees.append(tree)
+                if len(buffered_lines) > 0:
+                    tree = _give_me_a_tree_from_export_format(buffered_lines)
+                    tree.attributes["sent_id"] = sent_id
+                    hf.mark_head(tree)
+                    trees.append(tree)
+                else:
+                    trees.append(None)
                 if sent_id % 1000 == 0:
                     print("loaded %d trees" % sent_id, file=stderr)
                     stderr.flush()
                 sent_id = None
-
-                hf.mark_head(tree)
+                buffered_lines = []
             elif sent_id is not None:
                 buffered_lines.append(line)
+            else:
+                raise Exception("oh nooooooooo")
 
     return trees
 
@@ -49,8 +53,10 @@ def _give_me_a_tree_from_export_format(lines):
     for line in lines:
 
         new_line = re.sub("%%.*", "", line)
-        fields = re.split("\t+", new_line.rstrip().lstrip("#"))
+        fields = re.split("[\t ]+", new_line.rstrip().lstrip("#"))
         if re.match("#\d+\t", line):  # Constituent
+            if len(fields) < 5:
+                raise Exception("problem "+line)
             my_id = int(fields[0])
             my_label = fields[1]  # "tag"
             my_morph_tag = fields[2]  # not used
@@ -80,6 +86,7 @@ def _give_me_a_tree_from_export_format(lines):
         if parent_id not in children:
             children[parent_id] = []
         children[parent_id].append(node)
+
 
     root_node = TreeNode("root", children[0], {})
 

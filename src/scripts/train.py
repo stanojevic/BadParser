@@ -30,9 +30,31 @@ from parser.model import *
 from data_formats.head_finding import HeadFinder
 
 
-def annotate_node_G_ordering(tree, next_free_index=0):
-    for child in tree.children:
-        next_free_index = annotate_node_G_ordering(child, next_free_index)
+def annotate_node_G_ordering(tree, next_free_index, ind_method):
+    if ind_method == "Left":
+        ordered_children = tree.children
+    elif ind_method == "Right":
+        ordered_children = reversed(tree.children)
+    elif ind_method == "RightD":
+        if tree.is_projective :
+            ordered_children = tree.children
+        else:
+            ordered_children = reversed(tree.children)
+    elif ind_method == "Dist2":
+        if tree.is_gap_creator(2):
+            ordered_children = reversed(tree.children)
+        else:
+            ordered_children = tree.children
+    elif ind_method == "Label":
+        if tree.label == "NP" or tree.label == "PP" or tree.is_projective :
+            ordered_children = tree.children
+        else:
+            ordered_children = reversed(tree.children)
+    else:
+        raise Exception("unknown <G method %s"%ind_method)
+
+    for child in ordered_children:
+        next_free_index = annotate_node_G_ordering(child, next_free_index, ind_method)
     tree.attributes["<G"] = next_free_index
     return next_free_index+1
 
@@ -127,8 +149,8 @@ def laziest_satisfied(laziness, conf):
 def is_complete(node):
     return len(node.children) == len(node.attributes['real_me'].children)
 
-def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, tag_droppiness, terminal_dropout_rate):
-    annotate_node_G_ordering(tree)
+def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, tag_droppiness, terminal_dropout_rate, ind_method):
+    annotate_node_G_ordering(tree, 0, ind_method)
     find_me_a_mother(tree)
     if laziness == "lazy":
         annotate_projectivity(tree)
@@ -195,7 +217,20 @@ def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppin
         if c.stack.size >= 2:
             real_me_top = c.stack.top().attributes['real_me']
             real_me_second_top = c.stack.second_top().attributes['real_me']
-            if real_me_top.attributes['<G'] < real_me_second_top.attributes['<G'] and \
+
+            top_G = real_me_top.attributes['<G']
+            #if is_complete(c.stack.top()):
+            #    top_G = real_me_top.attributes['<G']
+            #else:
+            #    top_G = real_me_top.children[real_me_top.attributes['head_child']].attributes['<G']
+
+            sec_top_G = real_me_second_top.attributes['<G']
+            #if is_complete(c.stack.second_top()):
+            #    sec_top_G = real_me_second_top.attributes['<G']
+            #else:
+            #    sec_top_G = real_me_second_top.children[real_me_second_top.attributes['head_child']].attributes['<G']
+
+            if top_G < sec_top_G and \
                lazy_satisfied(laziness, c) and laziest_satisfied(laziness, c):
                 c = c.transition(action_storage.SWAP)
                 continue
@@ -282,16 +317,29 @@ def count_transitions(final_conf, sent_id):
 
     action_counts = {}
     consecutive_pro_count = 0
+    consecutive_swap_count = 0
     conf = final_conf
     action_counts['conseq_pro_3'] = 0
     action_counts['conseq_pro_4'] = 0
     action_counts['conseq_pro_>4'] = 0
+    for i in range(1,101):
+        action_counts["compswap_%d"%i] = 0
+    action_counts["compswap_total"] = 0
     while conf.prev_conf is not None:
         action = conf.last_action
         if action.startswith("pro"):
             consecutive_pro_count += 1
         else:
             consecutive_pro_count = 0
+        if action.startswith("swap"):
+            consecutive_swap_count += 1
+        else:
+            if consecutive_swap_count>0:
+                if consecutive_swap_count > 100:
+                    consecutive_swap_count = 100
+                action_counts["compswap_%d"%consecutive_swap_count] += 1
+                action_counts["compswap_total"] += 1
+            consecutive_swap_count = 0
         if consecutive_pro_count == 3:
             action_counts['conseq_pro_3'] = action_counts.get('conseq_pro_3', 0) + 1
         if consecutive_pro_count == 4:
@@ -317,6 +365,15 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
     train_pos_seqs = load_pos_tags(train_pos_file)
     dev_trees = load_from_export_format(dev_trees_file, encoding)
     dev_pos_seqs = load_pos_tags(dev_pos_file)
+
+    train_data = list(filter(lambda x: x[0] is not None, list(zip(train_trees, train_pos_seqs))))
+    train_trees = list(map(lambda x: x[0], train_data))
+    train_pos_seqs = list(map(lambda x: x[1], train_data))
+    train_data_size = len(train_data)
+    dev_data = list(filter(lambda x: x[0] is not None, list(zip(dev_trees, dev_pos_seqs))))
+    # dev_trees = list(map(lambda x: x[0], dev_data))
+    # dev_pos_seqs = list(map(lambda x: x[1], dev_data))
+
     all_s2i = ContainerStr2IntMaps()
     all_s2i.w2i = get_word_mapping(train_trees)
     if 'c_emb_size_for_char' in hyper_params:
@@ -347,9 +404,6 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
 
     reporting_frequency = 1000
 
-    train_data = list(zip(train_trees, train_pos_seqs))
-    train_data_size = len(train_data)
-    dev_data = list(zip(dev_trees, dev_pos_seqs))
     for epoch in range(1, epochs+1):
         time_epoch_start = time()
         shuffle(train_data)
@@ -358,9 +412,10 @@ def main(train_trees_file, train_pos_file, dev_trees_file, dev_pos_file, encodin
         train_action_counts = []
         mini_batch = []
         for i, (tree, pos_seq) in enumerate(train_data, 1):
+            #print("processing %d"%tree.attributes['sent_id'], file=stderr)
             if len(mini_batch) == 0:
                 dy.renew_cg()
-            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['tag_droppiness'], hyper_params['terminal_dropout'])
+            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['tag_droppiness'], hyper_params['terminal_dropout'], hyper_params['<ind'])
             train_action_counts.append(count_transitions(oracle_conf, tree.attributes['sent_id']))
             loss = -oracle_conf.log_prob
             loss_value = loss.value()

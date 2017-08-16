@@ -57,12 +57,12 @@ def create_all_confs():
 
         #Fixed:
         "beam_size": [1],  # FIXED
-        "laziness": ["laziest"],  # FIXED
+        "laziness": ["eager", "lazy", "lazier"],
         "optimizer": ["Adam"],  # FIXED
         "optimizer_b1": [0.9], # FIXED
         "optimizer_b2": [0.999], # FIXED
-        "update_type": ["sparse"]  # FIXED
-
+        "update_type": ["sparse"],  # FIXED
+        "<ind": ["Left", "Right", "RightD", "Dist2", "Label"]
     }
 
     confs = conf_dict.values()

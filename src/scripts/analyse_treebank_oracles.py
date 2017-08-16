@@ -83,9 +83,31 @@ def get_word_mapping(trees):
         w2i.add_string(w)
     return w2i
 
-def annotate_node_G_ordering(tree, next_free_index=0):
-    for child in tree.children:
-        next_free_index = annotate_node_G_ordering(child, next_free_index)
+def annotate_node_G_ordering(tree, next_free_index, ind_method):
+    if ind_method == "Left":
+        ordered_children = tree.children
+    elif ind_method == "Right":
+        ordered_children = reversed(tree.children)
+    elif ind_method == "RightD":
+        if tree.is_projective :
+            ordered_children = tree.children
+        else:
+            ordered_children = reversed(tree.children)
+    elif ind_method == "Dist2":
+        if tree.is_gap_creator(2):
+            ordered_children = reversed(tree.children)
+        else:
+            ordered_children = tree.children
+    elif ind_method == "Label":
+        if tree.label == "NP" or tree.label == "PP" or tree.is_projective :
+            ordered_children = tree.children
+        else:
+            ordered_children = reversed(tree.children)
+    else:
+        raise Exception("unknown <G method %s"%ind_method)
+
+    for child in ordered_children:
+        next_free_index = annotate_node_G_ordering(child, next_free_index, ind_method)
     tree.attributes["<G"] = next_free_index
     return next_free_index+1
 
@@ -180,8 +202,8 @@ def laziest_satisfied(laziness, conf):
 def is_complete(node):
     return len(node.children) == len(node.attributes['real_me'].children)
 
-def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, tag_droppiness, terminal_dropout_rate):
-    annotate_node_G_ordering(tree)
+def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppiness, tag_droppiness, terminal_dropout_rate, ind_method):
+    annotate_node_G_ordering(tree, 0, ind_method)
     find_me_a_mother(tree)
     if laziness == "lazy":
         annotate_projectivity(tree)
@@ -267,6 +289,58 @@ def construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, word_droppin
     return c  # -c.log_prob
 
 def count_transitions(final_conf, sent_id):
+    all_confs = []
+    all_actions = []
+    conf = final_conf
+    while conf.prev_conf is not None:
+        all_confs.append(conf.prev_conf)
+        all_actions.append(conf.last_action)
+        conf = conf.prev_conf
+    all_confs = reversed(all_confs)
+    all_actions = reversed(all_actions)
+
+    counts = {}
+    swap_block_sizes = []
+    swap_alt_block_sizes = []
+    const_swap_transition_sizes = set()
+    const_swap_block_sizes = []
+    const_swap_block_sizes_cummul = 0
+    const_swap_consecutive_count = 0
+    const_swap_alt_block_sizes = []
+    for (conf, action) in zip(all_confs, all_actions):
+        if action == "swap":
+            counts['swap'] = counts.get("swap", 0) + 1
+            const_swap_consecutive_count += 1
+            const_swap_block_sizes_cummul += len(conf.stack.second_top().give_me_terminal_nodes())
+            swap_block_sizes.append(len(conf.stack.second_top().give_me_terminal_nodes()))
+            swap_alt_block_sizes.append(len(conf.stack.top().give_me_terminal_nodes()))
+        else:
+            if const_swap_consecutive_count > 0:
+                counts['comp_swap'] = counts.get("comp_swap", 0) + 1
+                const_swap_transition_sizes.add(const_swap_consecutive_count)
+                const_swap_consecutive_count = 0
+                const_swap_block_sizes.append(const_swap_block_sizes_cummul)
+                const_swap_block_sizes_cummul = 0
+                const_swap_alt_block_sizes.append(len(conf.stack.top().give_me_terminal_nodes()))
+
+
+    if 'swap' in counts:
+        counts['avg_block_size'] = np.mean(np.array(swap_block_sizes))
+        counts['avg_alt_block_size'] = np.mean(np.array(swap_alt_block_sizes))
+        counts['comp_avg_block_size'] = np.mean(np.array(const_swap_block_sizes))
+        counts['comp_avg_alt_block_size'] = np.mean(np.array(const_swap_alt_block_sizes))
+    else:
+        counts['swap'] = 0
+        counts['avg_block_size'] = 0.0
+        counts['avg_alt_block_size'] = 0.0
+        counts['comp_swap'] = 0
+        counts['comp_avg_block_size'] = 0.0
+        counts['comp_avg_alt_block_size'] = 0.0
+    counts['comp_transitions'] = const_swap_transition_sizes
+
+    return counts
+
+def count_transitions2(final_conf, sent_id):
 
     counts = {}
     conf = final_conf
@@ -298,6 +372,10 @@ def main(train_trees_file, train_pos_file, encoding, model_dir, hyper_params_des
     # load the data in the memory
     train_trees = load_from_export_format(train_trees_file, encoding)
     train_pos_seqs = load_pos_tags(train_pos_file)
+    assert(len(train_trees) == len(train_pos_seqs))
+    train_data = list(filter(lambda x: x[0] is not None, zip(train_trees,train_pos_seqs)))
+    train_trees = list(map(lambda x: x[0], train_data))
+    train_pos_seqs = list(map(lambda x: x[1], train_data))
     all_s2i = ContainerStr2IntMaps()
     all_s2i.w2i = get_word_mapping(train_trees)
     if 'c_emb_size_for_char' in hyper_params:
@@ -322,28 +400,84 @@ def main(train_trees_file, train_pos_file, encoding, model_dir, hyper_params_des
 
     output_fh = stdout
 
-    print("sentID,words,swapsEager,swapsLazy,swapsLazier,avgBlockSizeEager,avgBlockSizeLazy,avgBlockSizeLazier,avgAltBlockSizeEager,avgAltBlockSizeLazy,avgAltBlockSizeLazier,better", file=output_fh)
+    columns = ["sentID",
+               "words",
+               "swapsEager",
+               "swapsLazy",
+               "swapsLazier",
+               "avgBlockSizeEager",
+               "avgBlockSizeLazy",
+               "avgBlockSizeLazier",
+               "avgAltBlockSizeEager",
+               "avgAltBlockSizeLazy",
+               "avgAltBlockSizeLazier",
+               "comp_swapsEager",
+               "comp_swapsLazy",
+               "comp_swapsLazier",
+               "comp_avgBlockSizeEager",
+               "comp_avgBlockSizeLazy",
+               "comp_avgBlockSizeLazier",
+               "comp_avgAltBlockSizeEager",
+               "comp_avgAltBlockSizeLazy",
+               "comp_avgAltBlockSizeLazier",
+               "better"]
+    print(",".join(columns), file=output_fh)
+    # print("sentID,words,swapsEager,swapsLazy,swapsLazier,avgBlockSizeEager,avgBlockSizeLazy,avgBlockSizeLazier,avgAltBlockSizeEager,avgAltBlockSizeLazy,avgAltBlockSizeLazier,better", file=output_fh)
+    # add compoundSwapsEager,compoundSwapsLazy,compoundSwapsLazier,compoundAvgBlockSizeEager,compoundAvgBlockSizeLazy,compoundAvgBlockSizeLazier,compoundAvgAltBlockSizeEager,compoundAvgAltBlockSizeLazy,compoundAvgAltBlockSizeLazier
+
+    const_transition_types_count = {}
+    for laziness in ["eager", "lazy", "laziest"]:
+        const_transition_types_count[laziness] = set()
 
     for i, (tree, pos_seq) in enumerate(train_data, 1):
-        out = "%d,%d"%(i, len(pos_seq))
+        to_out = [str(i), str(len(pos_seq))]
+        #out = "%d,%d"%(i, len(pos_seq))
         counts = {}
         for laziness in ["eager", "lazy", "laziest"]:
             dy.renew_cg()
-            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['tag_droppiness'], hyper_params['terminal_dropout'])
+            oracle_conf = construct_oracle_conf(tree, pos_seq, params, all_s2i, laziness, hyper_params['word_droppiness'], hyper_params['tag_droppiness'], hyper_params['terminal_dropout'], hyper_params['<ind'])
             counts[laziness] = count_transitions(oracle_conf, tree.attributes['sent_id'])
-        out+=",%d,%d,%d,%f,%f,%f,%f,%f,%f"%(counts["eager"]['swap'], counts["lazy"]['swap'], counts["laziest"]['swap'], counts["eager"]['avg_block_size'], counts["lazy"]['avg_block_size'], counts["laziest"]['avg_block_size'], counts["eager"]['avg_alt_block_size'], counts["lazy"]['avg_alt_block_size'], counts["laziest"]['avg_alt_block_size'])
+            const_transition_types_count[laziness] |= counts[laziness]['comp_transitions']
+        # out+=",%d,%d,%d,%f,%f,%f,%f,%f,%f"%(
+        #     counts["eager"]['swap'], counts["lazy"]['swap'], counts["laziest"]['swap'],
+        #     counts["eager"]['avg_block_size'], counts["lazy"]['avg_block_size'], counts["laziest"]['avg_block_size'],
+        #     counts["eager"]['avg_alt_block_size'], counts["lazy"]['avg_alt_block_size'], counts["laziest"]['avg_alt_block_size'])
+        to_out.extend(map(str, [
+            counts["eager"]['swap'],
+            counts["lazy"]['swap'],
+            counts["laziest"]['swap'],
+            counts["eager"]['avg_block_size'],
+            counts["lazy"]['avg_block_size'],
+            counts["laziest"]['avg_block_size'],
+            counts["eager"]['avg_alt_block_size'],
+            counts["lazy"]['avg_alt_block_size'],
+            counts["laziest"]['avg_alt_block_size'],
+            counts["eager"]['comp_swap'],
+            counts["lazy"]['comp_swap'],
+            counts["laziest"]['comp_swap'],
+            counts["eager"]['comp_avg_block_size'],
+            counts["lazy"]['comp_avg_block_size'],
+            counts["laziest"]['comp_avg_block_size'],
+            counts["eager"]['comp_avg_alt_block_size'],
+            counts["lazy"]['comp_avg_alt_block_size'],
+            counts["laziest"]['comp_avg_alt_block_size'],
+        ]))
         if counts['lazy']['swap']<counts['laziest']['swap']:
-            out+=",yes"
+            #out+=",yes"
+            to_out.append("yes")
         else:
-            out+=",no"
+            #out+=",no"
+            to_out.append("no")
 
-        print(out, file=output_fh)
+        print(",".join(to_out), file=output_fh)
 
         if i % reporting_frequency == 0:
             print("%d"%i, file=stderr)
 
         stderr.flush()
         output_fh.flush()
+    for laziness in ["eager", "lazy", "laziest"]:
+        print("const type transitions %s %d"%(laziness,len(const_transition_types_count[laziness])), file=stderr)
 
 if __name__ == "__main__":
 
